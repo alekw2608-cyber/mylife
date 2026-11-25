@@ -3970,15 +3970,15 @@ App.register({id:'today',title:'Dziś',icon:'sun',group:'',order:-1,
   el.append(h('div',{class:'row wrap',style:{margin:'4px 0 14px'}},h('div',{class:'sp'},h('div',{style:{fontSize:'28px',fontWeight:700,letterSpacing:'-.03em'}},(hr<5?'Dobrej nocy':hr<18?'Dzień dobry':'Dobry wieczór')+(nm?', '+nm:'')),h('div',{class:'muted'},dLabel(t))),btn('Szybkie dodawanie',()=>Quick.open(),'primary','plus'),btn(ui.edit?'Gotowe':'Układ',()=>{ui.edit=!ui.edit;App.render()},ui.edit?'primary':'','edit'),ui.edit&&((T().order||[]).length||(T().hide||[]).length)?btn('Resetuj układ',()=>{T().order=[];T().hide=[];App.commit()},'ghost'):null),goalCard());
   const grid=h('div',{class:'grid',style:{gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',alignItems:'start'}});
   const digestCard=()=>{if(!App.tlSumW)return null;const t=todayStr(),ws=addDays(t,-dow(t)),c=App.tlSumW(ws),p=App.tlSumW(addDays(ws,-7)),end=addDays(t,7);
-   const up=[];try{Cal.items(t,end,{all:true}).forEach(x=>up.push({d:x.date||x.start||t,t:(x.st?x.st+' ':'')+x.title,k:'📅'}))}catch(e){}
-   ((App.db.tasks||{}).items||[]).filter(k=>k.status!=='done'&&k.due&&k.due<=end).forEach(k=>up.push({d:k.due,t:k.title,k:k.due<t?'⚠️':'✅'}));
-   try{Budget.dueList(t,end).filter(x=>!x.paid).forEach(x=>up.push({d:x.date,t:x.r.name+' – '+money(x.r.amount,x.r.cur),k:'💳'}))}catch(e){}
+   const up=[];try{Cal.items(t,end,{all:true}).forEach(x=>up.push({d:x.date||x.start||t,t:(x.st?x.st+' ':'')+x.title,k:'a'}))}catch(e){}
+   ((App.db.tasks||{}).items||[]).filter(k=>k.status!=='done'&&k.due&&k.due<=end).forEach(k=>up.push({d:k.due,t:k.title,k:k.due<t?'b':'g'}));
+   try{Budget.dueList(t,end).filter(x=>!x.paid).forEach(x=>up.push({d:x.date,t:x.r.name+' – '+money(x.r.amount,x.r.cur),k:'w'}))}catch(e){}
    up.sort((a,b)=>String(a.d).localeCompare(String(b.d)));const dl=(a,b)=>!b&&!a?'':a===b?'bez zmian':(a>b?'▲':'▼')+' '+money(Math.abs(a-b));
-   const kp=(l,v,s2)=>h('div',{style:{flex:'1 1 90px',minWidth:'90px'}},h('div',{class:'tiny muted'},l),h('div',{style:{fontSize:'20px',fontWeight:700}},v),h('div',{class:'tiny muted'},s2||''));
+   const kp=(l,v,s2)=>h('div',null,h('div',{class:'l'},l),h('div',{class:'v'},v),h('div',{class:'l'},s2||'\u00a0'));
    return h('div',{class:'card',style:{gridColumn:'1/-1',borderLeft:'4px solid var(--accent)'}},h('div',{class:'row wrap',style:{gap:'8px',marginBottom:'8px'}},h('b',{class:'sp'},'Twój tydzień w skrócie'),btn(T().compact?'Pokaż wszystkie karty':'Tylko podsumowanie',()=>{T().compact=!T().compact;App.commit()},'sm'),btn('Pełny przegląd',()=>{App.go('timeline')},'sm ghost')),
-    h('div',{class:'row wrap',style:{gap:'14px'}},kp('Wydatki',money(c.spent),dl(c.spent,p.spent)+(p.spent?' vs poprz.':'')),kp('Zadania',c.tasks,'wykonane'),kp('Treningi',c.fit,''),kp('Aktywne dni',c.active+'/7','XP '+c.xp)),
+    h('div',{class:'dg'},kp('Wydatki',money(c.spent),dl(c.spent,p.spent)+(p.spent?' vs poprz.':'')),kp('Zadania',c.tasks,'wykonane'),kp('Treningi',c.fit,''),kp('Aktywne dni',c.active+'/7','XP '+c.xp)),
     h('div',{class:'small muted',style:{margin:'10px 0 4px'}},'Przed tobą (7 dni)'),
-    up.length?h('div',{class:'col',style:{gap:'4px'}},...up.slice(0,6).map(x=>h('div',{class:'small row',style:{gap:'8px'}},h('span',null,x.k),h('span',{class:'muted',style:{minWidth:'64px'}},x.d===t?'dziś':x.d===addDays(t,1)?'jutro':dShort(x.d)),h('span',{class:'sp',style:{overflowWrap:'anywhere'}},x.t))),up.length>6?h('div',{class:'tiny muted'},'…i jeszcze '+(up.length-6)+' (zobacz Oś czasu → Co mnie czeka)'):null):h('div',{class:'small'},'Spokojny tydzień: nic pilnego w kalendarzu, zadaniach ani płatnościach.'))};
+    up.length?h('div',{class:'col',style:{gap:'4px'}},...up.slice(0,6).map(x=>h('div',{class:'small row',style:{gap:'8px'}},h('span',{class:'dot '+x.k}),h('span',{class:'muted',style:{minWidth:'64px'}},x.d===t?'dziś':x.d===addDays(t,1)?'jutro':dShort(x.d)),h('span',{class:'sp',style:{overflowWrap:'anywhere'}},x.t))),up.length>6?h('div',{class:'tiny muted'},'…i jeszcze '+(up.length-6)+' (zobacz Oś czasu → Co mnie czeka)'):null):h('div',{class:'small'},'Spokojny tydzień: nic pilnego w kalendarzu, zadaniach ani płatnościach.'))};
   const CARDS=[['digest',digestCard],['week',()=>typeof Week!=='undefined'?Week.card():null],['plan',planCard],['tomorrow',tomorrowCard],['tasks',taskCard],['habits',habitCard],['health',healthCard],['fit',fitCard],['meals',mealCard],['study',studyCard],['life',lifeCard],['game',gameCard]];
   let ids=CARDS.map(c=>c[0]);const ord=[...(T().order||[]).filter(x=>ids.includes(x)),...ids.filter(x=>!(T().order||[]).includes(x))];if(!(T().order||[]).includes('digest')){ord.splice(ord.indexOf('digest'),1);ord.unshift('digest')}const hid=T().hide||[];
   const move=(id,d)=>{const i=ord.indexOf(id),j=i+d;if(j<0||j>=ord.length)return;ord.splice(i,1);ord.splice(j,0,id);T().order=ord.slice();App.commit()};
@@ -4014,7 +4014,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='3.3';let reg=null,upd=false;
+const VER='3.4';let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');
@@ -4818,6 +4818,38 @@ function paint(done){const steps=iOS?['Otwórz tę stronę w Safari.','Dotknij U
  g.innerHTML='<div class="gb"><div style="font-size:54px">◐</div><h1>MyLife App</h1>'+(oauth?'<p><b>Połączono z OneDrive.</b> Zamknij tę kartę i wróć do aplikacji.</p>':done?'<p><b>Zainstalowano.</b> Otwórz MyLife App z ikony i możesz zamknąć tę kartę.</p>':'<p>Ta aplikacja działa jako zainstalowany program, a nie na stronie internetowej. Zainstaluj ją raz, a potem otwieraj jak każdą inną aplikację.</p>')+(!done&&evt?'<button id="gi" type="button">Zainstaluj teraz</button>':'')+(!done&&!oauth?'<ol>'+steps.map(s=>'<li>'+s+'</li>').join('')+'</ol>':'')+'<p class="m">Twoje dane zostają na urządzeniu i działają offline.</p></div>';
  const b=g.querySelector('#gi');if(b)b.onclick=async()=>{try{evt.prompt();await evt.userChoice}catch(e){}evt=null;paint()}}
 paint();const add=()=>document.body.append(g);if(document.body)add();else document.addEventListener('DOMContentLoaded',add);
+})();
+/* ===== Minimalizm w stylu Apple: warstwa wyglądu nałożona na całą aplikację ===== */
+(()=>{
+const css=`
+:root{--r:20px;--shadow:0 0 0 .5px rgba(0,0,0,.05),0 2px 12px rgba(0,0,0,.05)}
+html[data-theme=dark]{--shadow:0 0 0 .5px rgba(255,255,255,.06)}
+body{-webkit-font-smoothing:antialiased;letter-spacing:-.011em}
+h1,h2{letter-spacing:-.03em;font-weight:700}
+.card{border:0;padding:20px 22px}
+.card h3{font-size:15px;font-weight:600;letter-spacing:-.015em}
+.card[style*="border-left: 4px solid var(--accent)"],.card[style*="border-left: 4px solid var(--warn"]{border-left:0!important}
+.btn:not(.primary):not(.ghost):not(.danger){background:var(--card2);border-color:transparent}
+.btn:not(.primary):not(.ghost):not(.danger):hover{background:color-mix(in srgb,var(--card2) 88%,var(--text))}
+.btn{border-radius:12px;font-weight:500}.btn.primary{box-shadow:none}
+.btn.primary:hover{filter:none;background:color-mix(in srgb,var(--accent) 90%,#000)}
+button.chip{border:0;font:inherit;font-size:12.5px;font-weight:500;color:inherit;background:var(--card2)}
+button.chip:hover{background:color-mix(in srgb,var(--card2) 85%,var(--text))}
+.demo-banner{background:transparent;color:var(--muted);font-size:12.5px;font-weight:400;padding:8px 12px;border-bottom:1px solid var(--line)}
+.demo-banner a,.demo-banner .linkbtn{color:var(--accent)}
+.tiny.muted,.small.muted{letter-spacing:0}
+input,select,textarea{border-radius:12px}
+.sp:has(>div[style*="font-size: 28px"]){min-width:60%}
+@media(max-width:600px){.sp:has(>div[style*="font-size: 28px"]){flex:1 1 100%}}
+#fab{box-shadow:0 6px 20px rgba(10,132,255,.35)}
+.dg{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:2px}
+@media(max-width:600px){.dg{grid-template-columns:repeat(2,1fr)}}
+.dg .v{font-size:24px;font-weight:700;letter-spacing:-.03em;line-height:1.15}
+.dg .l{font-size:12px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;margin-top:6px;background:var(--accent)}
+.dot.w{background:var(--warn)}.dot.b{background:var(--bad)}.dot.g{background:var(--good)}
+`;
+const s=document.createElement('style');s.id='apple-min';s.textContent=css;document.head.append(s);
 })();
 /* ============ ASYSTENT LOKALNY (reguły, bez AI i bez internetu) ============ */
 const Assistant=(()=>{
