@@ -4014,7 +4014,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='3.5';let reg=null,upd=false;
+const VER='3.6';let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');
@@ -4027,10 +4027,14 @@ let us='idle',usErr='';/* idle | checking | downloading | ready | none */
 const refreshUI=()=>{try{if(App.curMod&&App.curMod.id==='settings')App.render()}catch(e){}};
 const setUs=v=>{us=v;barUpd();refreshUI()};
 const restart=()=>{let done=false;const go=()=>{if(done)return;done=true;location.reload()};navigator.serviceWorker.addEventListener('controllerchange',go);try{App.save(true)}catch(e){}try{reg&&reg.waiting&&reg.waiting.postMessage('skip')}catch(e){}setTimeout(go,2500)};
-const barUpd=()=>{let b=document.getElementById('upd-bar');if(us!=='ready'&&us!=='downloading'){if(b)b.remove();return}
- if(!b){b=document.createElement('div');b.id='upd-bar';b.className='demo-banner';document.body.prepend(b)}
- b.innerHTML=us==='ready'?'Nowa wersja jest pobrana. <button type="button" class="linkbtn" id="upd-go">Uruchom ponownie</button>':'Pobieram nową wersję…';const g=b.querySelector('#upd-go');if(g)g.onclick=restart};
-const watch=r=>{r.addEventListener('updatefound',()=>{const w=r.installing;if(!w)return;setUs('downloading');w.addEventListener('statechange',()=>{if(w.state==='installed')setUs(navigator.serviceWorker.controller?'ready':'idle');else if(w.state==='redundant'&&us==='downloading'){usErr='Pobieranie nie powiodło się';setUs('idle')}})})};
+let later=false;
+const barUpd=()=>{let b=document.getElementById('upd-bar');if((us!=='ready'&&us!=='downloading')||later){if(b)b.remove();return}
+ if(!b){b=document.createElement('div');b.id='upd-bar';b.setAttribute('role','status');b.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:9000;width:min(420px,calc(100vw - 24px));background:var(--card,#fff);color:var(--text,#1d1d1f);border-radius:18px;box-shadow:0 8px 32px rgba(0,0,0,.18),0 0 0 .5px rgba(0,0,0,.08);padding:14px 16px;display:flex;align-items:center;gap:12px;font-size:14px';document.body.append(b)}
+ if(us==='downloading'){b.innerHTML='<div style="flex:1"><b>Pobieram aktualizację…</b><div style="color:var(--muted,#6e6e73);font-size:12.5px">Za chwilę będzie gotowa do instalacji.</div></div>';return}
+ b.innerHTML='<div style="flex:1;min-width:0"><b>Dostępna aktualizacja</b><div style="color:var(--muted,#6e6e73);font-size:12.5px">Gotowa do instalacji. Twoje dane zostają.</div></div><button type="button" id="upd-later" class="btn ghost sm">Później</button><button type="button" id="upd-go" class="btn primary sm">Zainstaluj</button>';
+ b.querySelector('#upd-go').onclick=restart;b.querySelector('#upd-later').onclick=()=>{later=true;barUpd()}};
+const track=w=>{setUs('downloading');w.addEventListener('statechange',()=>{if(w.state==='installed')setUs(navigator.serviceWorker.controller?'ready':'idle');else if(w.state==='redundant'&&us==='downloading'){usErr='Pobieranie nie powiodło się';setUs('idle')}})};
+const watch=r=>{r.addEventListener('updatefound',()=>{if(r.installing)track(r.installing)});if(r.installing&&navigator.serviceWorker.controller)track(r.installing)};
 async function checkUpd(manual){if(!web||!('serviceWorker' in navigator)){manual&&toast('Aktualizacje działają po instalacji z hostingu');return}
  if(!navigator.onLine){manual&&toast('Brak internetu – sprawdzę, gdy wrócisz online');return}
  if(us==='ready'||us==='downloading'||us==='checking')return;
@@ -4038,7 +4042,7 @@ async function checkUpd(manual){if(!web||!('serviceWorker' in navigator)){manual
   if(r.waiting&&navigator.serviceWorker.controller){setUs('ready');return}
   setUs('checking');await r.update();
   setTimeout(()=>{if(us==='checking'){setUs('none');manual&&toast('Masz najnowszą wersję')}},1500)}catch(e){usErr='Nie udało się sprawdzić aktualizacji';setUs('idle')}}
-if(web&&'serviceWorker' in navigator){navigator.serviceWorker.ready.then(r=>{reg=r;watch(r);if(r.waiting&&navigator.serviceWorker.controller)setUs('ready');else setTimeout(()=>checkUpd(false),4000)}).catch(()=>{});
+if(web&&'serviceWorker' in navigator){navigator.serviceWorker.ready.then(r=>{reg=r;watch(r);if(r.waiting&&navigator.serviceWorker.controller)setUs('ready');else checkUpd(false)}).catch(()=>{});
  setInterval(()=>checkUpd(false),4*3600*1000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkUpd(false)})}
 App.checkUpdate=checkUpd;
 App.updateCard=()=>{const busy=us==='checking'||us==='downloading';

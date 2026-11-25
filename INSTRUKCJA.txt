@@ -1,4 +1,4 @@
-MyLife App 3.5 – poradnik: instalacja, OneDrive, aktualizacje
+MyLife App 3.6 – poradnik: instalacja, OneDrive, aktualizacje
 ==============================================================
 
 CZĘŚĆ 1. WGRANIE APLIKACJI NA HOSTING (jednorazowo, ok. 10 minut)
@@ -49,6 +49,6 @@ CZĘŚĆ 5. JAK WYSŁAĆ APLIKACJĘ KOMUŚ
 Wyślij tej osobie link do swojej strony (np. https://TWOJLOGIN.github.io/mylife/): w aplikacji Ustawienia → „Wyślij aplikację komuś”, albo skopiuj adres. Osoba otwiera link i klika „Zainstaluj” (Android/Chrome/Edge: baner lub menu → „Zainstaluj aplikację”; iPhone: Udostępnij → „Do ekranu początkowego”). Nie pobiera żadnych plików, a każda aktualizacja dociera do niej tym samym przyciskiem „Pobierz aktualizację → Uruchom ponownie”. Każda osoba ma własne, osobne dane.
 
 CZĘŚĆ 6. TYLKO JAKO APLIKACJA (nie na stronie)
-Od wersji 3.5 po wejściu na adres w zwykłej karcie przeglądarki aplikacja pokazuje tylko ekran „Zainstaluj” z przyciskiem i krokami, a Twoich danych nie otwiera. Działa normalnie dopiero po uruchomieniu zainstalowanej aplikacji (ikona, Menu Start, EXE, APK).
+Od wersji 3.6 po wejściu na adres w zwykłej karcie przeglądarki aplikacja pokazuje tylko ekran „Zainstaluj” z przyciskiem i krokami, a Twoich danych nie otwiera. Działa normalnie dopiero po uruchomieniu zainstalowanej aplikacji (ikona, Menu Start, EXE, APK).
 Awaryjnie (np. gdy chcesz wyeksportować dane z karty przeglądarki) dopisz do adresu ?web=1, np. https://TWOJLOGIN.github.io/mylife/?web=1 (działa do zamknięcia karty).
 Plik MyLife-App.html otwierany z dysku nie jest blokowany.
