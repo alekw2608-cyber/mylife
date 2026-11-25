@@ -1,0 +1,54 @@
+MyLife App 3.2 – poradnik: instalacja, OneDrive, aktualizacje
+==============================================================
+
+CZĘŚĆ 1. WGRANIE APLIKACJI NA HOSTING (jednorazowo, ok. 10 minut)
+Aplikacja jako „prawdziwa” (z ikoną, offline, aktualizacjami) musi być otwarta z adresu https://.
+Najprościej: GitHub Pages (darmowe).
+1. Załóż konto na github.com.
+2. Kliknij + (prawy górny róg) → New repository. Nazwa np. mylife, widoczność Public. Create repository.
+3. Na stronie repozytorium kliknij „uploading an existing file”.
+4. Rozpakuj MyLife-PWA.zip i przeciągnij WSZYSTKIE pliki z folderu (index.html, sw.js, manifest.webmanifest, icon-192.png, icon-512.png, sync-config.json). Commit changes.
+5. Settings → Pages → Source: „Deploy from a branch”, Branch: main, folder: / (root) → Save.
+6. Po 1–2 minutach adres to: https://TWOJLOGIN.github.io/mylife/
+   (repozytorium jest publiczne, ale Twoje dane NIE trafiają na GitHub, siedzą tylko na Twoich urządzeniach i w Twoim OneDrive).
+
+CZĘŚĆ 2. INSTALACJA
+Android (telefon/tablet): Chrome → otwórz adres → menu ⋮ → „Zainstaluj aplikację” → Zainstaluj. Ikona pojawi się na ekranie głównym. Przytrzymaj ikonę, aby zobaczyć skróty: + Wydatek, + Zadanie, + Wydarzenie, + Notatka.
+Laptop / komputer (Windows, macOS, Linux): Chrome lub Edge → otwórz adres → ikona instalacji w pasku adresu (monitor ze strzałką) albo menu → „Zainstaluj MyLife App”. Na Windows można przypiąć do paska zadań.
+iPhone/iPad: Safari → Udostępnij → „Do ekranu początkowego”.
+Zainstaluj tak na KAŻDYM urządzeniu. Na każdym dane zapisują się lokalnie, także offline.
+
+CZĘŚĆ 3. SYNCHRONIZACJA PRZEZ ONEDRIVE (jednorazowa konfiguracja)
+Aplikacja zapisuje na OneDrive zaszyfrowany plik w folderze aplikacji (OneDrive → Aplikacje). Hasła nie wysyła. Potrzebna jest własna „rejestracja aplikacji” w Microsoft (darmowa):
+1. Wejdź na portal.azure.com (konto Microsoft, tym samym którego używasz do OneDrive). Jeśli portal poprosi o utworzenie darmowego katalogu / konta Azure, zrób to (darmowe, nie musisz uruchamiać płatnych usług).
+2. Microsoft Entra ID → App registrations → New registration.
+   - Name: MyLife App
+   - Supported account types: „Accounts in any organizational directory and personal Microsoft accounts”
+   - Redirect URI: platforma „Single-page application (SPA)”, adres: https://TWOJLOGIN.github.io/mylife/  (z ukośnikiem na końcu, dokładnie taki, jaki pokazuje aplikacja w Ustawieniach)
+   - Register.
+3. W API permissions → Add a permission → Microsoft Graph → Delegated permissions → dodaj: Files.ReadWrite.AppFolder oraz offline_access.
+4. Skopiuj „Application (client) ID” z ekranu Overview.
+5. Wpisz ID w aplikacji: Ustawienia → Synchronizacja OneDrive → pole ID → Zapisz. (Albo raz wpisz je w pliku sync-config.json na GitHubie: {"clientId":"TWOJE-ID"}; wtedy wszystkie urządzenia będą je znać same.)
+6. Kliknij „Połącz z OneDrive”, zaloguj się i zaakceptuj dostęp.
+PIERWSZE URZĄDZENIE: wejdź na swoje konto (z hasłem) → Ustawienia → „Synchronizuj to konto”.
+KOLEJNE URZĄDZENIA: zainstaluj aplikację, na ekranie startowym kliknij „Pobierz je tutaj” (przy pierwszym razie zaloguj się do OneDrive i kliknij ten link jeszcze raz), wybierz plik, potem wejdź hasłem z pierwszego urządzenia.
+Dalej działa samo: zmiany wysyłają się ok. 20 s po zapisie, gdy jesteś online, a przy otwarciu aplikacji pobierają się zmiany z innych urządzeń. Offline zapisuje się lokalnie i wysyła po powrocie internetu.
+Ważne: 
+- Synchronizowane są tylko konta z hasłem (zaszyfrowane). Demo nie.
+- Jeśli zmienisz coś na dwóch urządzeniach naraz, aplikacja pokaże „Konflikt wersji” i zapyta, którą wersję zachować (przed zastąpieniem pobierze kopię). Nie łączy zmian automatycznie.
+- Sesja OneDrive w przeglądarkach wygasa co jakiś czas (Microsoft ogranicza ją do ok. 24 h dla takich aplikacji). Wtedy w Ustawieniach kliknij „Połącz z OneDrive” (zwykle jedno kliknięcie).
+- Nie zapomnij hasła: bez niego pliku nie da się odczytać (jest kod odzyskiwania z założenia konta).
+
+CZĘŚĆ 4. AKTUALIZACJE
+1. Wgraj nowe pliki z paczki do repozytorium (Add file → Upload files, nadpisz stare, Commit).
+2. W aplikacji: Ustawienia → „Połączenie i aktualizacje” → „Pobierz aktualizację”. Nowa wersja pobiera się w tle.
+3. Gdy pojawi się „Nowa wersja pobrana”, kliknij „Uruchom ponownie” (jest też na górnym pasku). Aplikacja uruchomi się już w nowej wersji, dane zostają.
+Aplikacja sprawdza aktualizacje też sama (po otwarciu i co kilka godzin).
+
+CZĘŚĆ 5. JAK WYSŁAĆ APLIKACJĘ KOMUŚ
+Wyślij tej osobie link do swojej strony (np. https://TWOJLOGIN.github.io/mylife/): w aplikacji Ustawienia → „Wyślij aplikację komuś”, albo skopiuj adres. Osoba otwiera link i klika „Zainstaluj” (Android/Chrome/Edge: baner lub menu → „Zainstaluj aplikację”; iPhone: Udostępnij → „Do ekranu początkowego”). Nie pobiera żadnych plików, a każda aktualizacja dociera do niej tym samym przyciskiem „Pobierz aktualizację → Uruchom ponownie”. Każda osoba ma własne, osobne dane.
+
+CZĘŚĆ 6. TYLKO JAKO APLIKACJA (nie na stronie)
+Od wersji 3.2 po wejściu na adres w zwykłej karcie przeglądarki aplikacja pokazuje tylko ekran „Zainstaluj” z przyciskiem i krokami, a Twoich danych nie otwiera. Działa normalnie dopiero po uruchomieniu zainstalowanej aplikacji (ikona, Menu Start, EXE, APK).
+Awaryjnie (np. gdy chcesz wyeksportować dane z karty przeglądarki) dopisz do adresu ?web=1, np. https://TWOJLOGIN.github.io/mylife/?web=1 (działa do zamknięcia karty).
+Plik MyLife-App.html otwierany z dysku nie jest blokowany.
