@@ -4014,7 +4014,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='3.4';let reg=null,upd=false;
+const VER='3.5';let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');
@@ -4708,7 +4708,7 @@ const AUTH='https://login.microsoftonline.com/common/oauth2/v2.0',G='https://gra
 const SCOPE='Files.ReadWrite.AppFolder offline_access';
 const web=/^https?:/.test(location.protocol);
 const ls={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
-let cfgCid='';
+let cfgCid='6b23de5b-b436-44e3-b393-475cecb4c726';
 const cid=()=>(ls.get('zycie.sync.cid','')||cfgCid||'').trim();
 const redirect=()=>location.origin+location.pathname.replace(/index\.html$/,'');
 const connected=()=>!!ls.get('zycie.sync.tok');
@@ -4781,10 +4781,12 @@ async function join(){if(!connected()){toast('Najpierw połącz z OneDrive (Usta
  if(!L.length){toast('W OneDrive nie ma jeszcze danych MyLife App');return}
  let close;const pick=async it=>{close();try{const text=await download(it.name);const o=JSON.parse(text);if(!o.enc||!o.c)throw new Error('Plik uszkodzony');const id='acc_'+uid(),A=App.accounts();A.push({id,name:o.nm||'OneDrive'});App.saveAccounts(A);localStorage.setItem('zycie.v1.'+id,text);setMeta({sid:it.name.slice(7,-5),etag:it.eTag,dbHash:null,needBase:1,auto:true,at:new Date().toISOString()},id);toast('Dodano konto z OneDrive. Wejdź hasłem ustawionym na pierwszym urządzeniu.');App.start()}catch(e){toast(e.message)}};
  close=modal({title:'Dane w OneDrive',body:h('div',{class:'col',style:{gap:'8px'}},h('p',{class:'small muted',style:{margin:0}},'Wybierz konto do pobrania na to urządzenie. Hasło jest takie samo jak na urządzeniu, z którego je wysłano.'),...L.map(it=>h('button',{type:'button',class:'btn',style:{textAlign:'left'},onclick:()=>pick(it)},'🔒 '+it.name+' · '+(it.t?new Date(it.t).toLocaleString('pl-PL'):'')+' · '+Math.round((it.size||0)/1024)+' KB'))),actions:[btn('Zamknij',()=>close())]})}
-const st0=App.start;App.start=function(){const r=st0.apply(this,arguments);try{const box=document.querySelector('#start .start-box');if(box&&web)box.append(h('p',{class:'small muted'},'Masz dane w OneDrive z innego urządzenia? ',h('a',{href:'#',onclick:e=>{e.preventDefault();connected()?join():(cid()?login():toast('Skonfiguruj OneDrive: wejdź na konto → Ustawienia → Synchronizacja OneDrive (wpisz Application ID)'))}},'Pobierz je tutaj')))}catch(e){}return r};
+const tryAutoJoin=()=>{if(ls.get('zycie.sync.joinAfter')&&connected()&&!App.db){ls.del('zycie.sync.joinAfter');setTimeout(join,400)}};
+const startJoin=()=>{if(connected()){join();return}if(!cid()){toast('Brak ID aplikacji OneDrive');return}ls.set('zycie.sync.joinAfter',1);login()};
+const st0=App.start;App.start=function(){const r=st0.apply(this,arguments);try{const box=document.querySelector('#start .start-box');if(box&&web){box.append(h('div',{style:{marginTop:'18px',textAlign:'center'}},h('button',{type:'button',class:'btn primary',style:{width:'100%',maxWidth:'420px',padding:'14px 18px',fontSize:'16px'},onclick:startJoin},'Mam już konto na innym urządzeniu'),h('div',{class:'small muted',style:{marginTop:'6px'}},'Zalogujesz się do OneDrive i wybierzesz swoje konto.')));tryAutoJoin()}}catch(e){}return r};
 /* --- start --- */
 let seen=null;const r0=App.render;App.render=function(){const r=r0.apply(this,arguments);try{if(App.db&&seen!==App.mode){seen=App.mode;const m=meta();if(m&&m.sid&&m.auto!==false)setTimeout(()=>sync(false),2000)}if(!App.db)seen=null}catch(e){}return r};
-handleReturn().then(()=>{if(ls.get('zycie.sync.just')){ls.del('zycie.sync.just');setTimeout(()=>{try{toast('Połączono z OneDrive')}catch(e){}},800)}});
+handleReturn().then(()=>{tryAutoJoin();if(ls.get('zycie.sync.just')){ls.del('zycie.sync.just');setTimeout(()=>{try{toast('Połączono z OneDrive')}catch(e){}},800)}});
 /* --- karta w Ustawieniach --- */
 App.odCard=()=>{const m=meta(),conn=connected(),isDemo=App.mode==='demo';
  const rows=[h('h3',null,'Synchronizacja OneDrive'),h('p',{class:'small muted',style:{marginTop:0}},'Dane zostają na urządzeniu i działają offline. Gdy jesteś online, zaszyfrowana kopia konta synchronizuje się z OneDrive (folder aplikacji), a inne urządzenia pobierają zmiany. OneDrive widzi tylko zaszyfrowany plik, hasła nigdzie nie wysyłam.')];
