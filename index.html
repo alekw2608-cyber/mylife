@@ -4014,7 +4014,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='3.8';let reg=null,upd=false;
+const VER='3.9';let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');
@@ -4051,8 +4051,36 @@ App.updateCard=()=>{const busy=us==='checking'||us==='downloading';
  h('div',{class:'row wrap',style:{gap:'8px',alignItems:'center'}},h('span',{class:'chip '+(navigator.onLine?'good':'warn')},navigator.onLine?'Online':'Offline'),
   us==='ready'?h('span',{class:'chip good'},'Nowa wersja pobrana'):null,
   us==='ready'?btn('Uruchom ponownie',restart,'primary','refresh'):(web&&'serviceWorker' in navigator?btn(us==='downloading'?'Pobieram aktualizację…':us==='checking'?'Sprawdzam…':'Pobierz aktualizację',()=>checkUpd(true),'primary','download'):null),
-  busy?null:null),
+  busy?null:null,isStandalone&&!isNative?btn('Odśwież ikonę aplikacji',iconHelp,'sm','image'):null),
  usErr?h('p',{class:'small warn',style:{marginBottom:0}},usErr):us==='none'?h('p',{class:'small muted',style:{marginBottom:0}},'Masz najnowszą wersję.'):null)};
+
+/* --- Odświeżenie ikony zainstalowanej aplikacji (opcjonalne, niezależne od danych i synchronizacji) --- */
+const ICON_VER=2,IK='zycie.iconVer',IS='zycie.iconSkip';
+const lsg=k=>{try{return +localStorage.getItem(k)||0}catch(e){return 0}},lss=(k,v)=>{try{localStorage.setItem(k,String(v))}catch(e){}};
+window.addEventListener('appinstalled',()=>lss(IK,ICON_VER));
+const isStandalone=matchMedia('(display-mode:standalone)').matches||matchMedia('(display-mode:fullscreen)').matches||matchMedia('(display-mode:minimal-ui)').matches||navigator.standalone===true;
+const isNative=/Electron\//.test(navigator.userAgent)||typeof window.Capacitor!=='undefined'||/; wv\)/.test(navigator.userAgent);
+const plat=()=>{const u=navigator.userAgent;return/iPhone|iPad|iPod/.test(u)?'ios':/Android/.test(u)?'android':'desktop'};
+function iconHelp(){let close;const P=plat();
+ const steps={android:['Przytrzymaj ikonę MyLife App na ekranie głównym i wybierz „Odinstaluj” (nie „Usuń z ekranu”).','Otwórz Chrome i wejdź na adres aplikacji.','Menu ⋮ → „Zainstaluj aplikację”.','Uruchom aplikację z nowej ikony.'],
+  desktop:['W oknie aplikacji kliknij menu ⋮ (prawy górny róg) → „Odinstaluj MyLife App…”. Jeśli pojawi się pole „Usuń także dane z Chrome / Edge”, NIE zaznaczaj go.','Otwórz Chrome lub Edge i wejdź na adres aplikacji.','Kliknij „Zainstaluj teraz” albo ikonę instalacji w pasku adresu.','Uruchom aplikację z Menu Start.'],
+  ios:['Przytrzymaj ikonę na ekranie początkowym → „Usuń zakładkę/Usuń z ekranu początkowego”.','Otwórz adres aplikacji w Safari.','Udostępnij → „Do ekranu początkowego”.']}[P];
+ const body=h('div',{class:'col',style:{gap:'10px'}},
+  h('p',{style:{margin:0}},'Nowa ikona zmieni się sama w ciągu 1–2 dni (zwykle po kolejnym sprawdzeniu aplikacji przez system). Jeśli chcesz mieć ją od razu, zainstaluj aplikację ponownie:'),
+  h('ol',{style:{margin:'0',paddingLeft:'20px',display:'grid',gap:'6px'}},...steps.map(x=>h('li',null,x))),
+  h('div',{class:'card',style:{background:'var(--card2)',boxShadow:'none',padding:'12px 14px'}},h('b',null,'Dane są bezpieczne. '),'Konto i dane zostają na urządzeniu i w OneDrive. Jeśli po ponownej instalacji ekran startowy będzie pusty, kliknij „Mam już konto na innym urządzeniu” i wybierz swoje konto.'),
+  h('p',{class:'small muted',style:{margin:0}},'To jest całkowicie opcjonalne. Pominięcie nie wpływa na aplikację, dane ani synchronizację między urządzeniami.'));
+ close=modal({title:'Nowa ikona aplikacji',body,actions:[btn('Zrobione',()=>{lss(IK,ICON_VER);close();barIcon()},'primary'),btn('Zsynchronizuj najpierw',()=>{try{OD.sync(true)}catch(e){}}),btn('Zamknij',()=>close(),'ghost')]})}
+let iconLater=false;
+function barIcon(){let b=document.getElementById('icon-bar');const need=isStandalone&&!isNative&&lsg(IK)<ICON_VER&&lsg(IS)<ICON_VER&&!iconLater&&us!=='ready'&&us!=='downloading';
+ if(!need){if(b)b.remove();return}
+ if(b)return;b=document.createElement('div');b.id='icon-bar';b.setAttribute('role','status');b.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:8900;width:min(420px,calc(100vw - 24px));background:var(--card,#fff);color:var(--text,#1d1d1f);border-radius:18px;box-shadow:0 8px 32px rgba(0,0,0,.18),0 0 0 .5px rgba(0,0,0,.08);padding:14px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:14px';
+ b.innerHTML='<div style="flex:1 1 200px;min-width:0"><b>Nowa ikona aplikacji</b><div style="color:var(--muted,#6e6e73);font-size:12.5px">Zmieni się sama w ciągu 1–2 dni. Możesz też zainstalować ponownie.</div></div><button type="button" id="ib-skip" class="btn ghost sm">Pomiń</button><button type="button" id="ib-how" class="btn primary sm">Jak to zrobić</button>';
+ document.body.append(b);
+ b.querySelector('#ib-how').onclick=()=>{iconLater=true;barIcon();iconHelp()};
+ b.querySelector('#ib-skip').onclick=()=>{lss(IS,ICON_VER);barIcon()}}
+App.iconHelp=iconHelp;
+if(isStandalone&&!isNative)setTimeout(barIcon,3500);
 return{}})();
 /* ============ SAMOUCZEK: przy nowym koncie, do pominięcia, zawsze dostępny ============ */
 const Tour=(()=>{
@@ -4829,6 +4857,7 @@ input,select,textarea{border-radius:12px}
 .sp:has(>div[style*="font-size: 28px"]){min-width:60%}
 @media(max-width:600px){.sp:has(>div[style*="font-size: 28px"]){flex:1 1 100%}}
 #fab{box-shadow:0 6px 20px rgba(10,132,255,.35)}
+.modal footer{flex-wrap:wrap;gap:8px}.modal footer .btn{flex:1 1 auto}
 .dg{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:2px}
 @media(max-width:600px){.dg{grid-template-columns:repeat(2,1fr)}}
 .dg .v{font-size:24px;font-weight:700;letter-spacing:-.03em;line-height:1.15}
