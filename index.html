@@ -4014,7 +4014,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='3.9';let reg=null,upd=false;
+const VER='4.0';App.ver=VER;let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');
@@ -4750,6 +4750,13 @@ const setMeta=(m,id)=>ls.set(metaKey(id||App.mode),m);
 const hash=s=>{let a=5381,b=52711;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);a=((a<<5)+a^c)>>>0;b=((b<<5)+b^c)>>>0}return a.toString(36)+b.toString(36)+s.length};
 const hashDb=()=>hash(JSON.stringify(App.db));
 const fname=m=>'mylife-'+m.sid+'.json';
+const rname=m=>'mylife-'+m.sid+'.dev.json';
+const fmtCode=x=>(x||'').toUpperCase().replace(/(.{4})(?=.)/g,'$1-');
+const normCode=x=>(x||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+const devId=()=>{let d=ls.get('zycie.devId');if(!d){d=Math.random().toString(36).slice(2,10);ls.set('zycie.devId',d)}return d};
+const autoName=()=>{const u=navigator.userAgent;const os=/iPhone|iPad|iPod/.test(u)?'iPhone/iPad':/Android/.test(u)?'Android':/Windows/.test(u)?'Windows':/Mac/.test(u)?'Mac':/Linux/.test(u)?'Linux':'Urządzenie';const br=/Edg\//.test(u)?'Edge':/Chrome\//.test(u)?'Chrome':/Safari\//.test(u)?'Safari':/Firefox\//.test(u)?'Firefox':'';return os+(br?' · '+br:'')};
+const devName=()=>ls.get('zycie.devName','')||autoName();
+const verCmp=(a,b)=>{const x=String(a||0).split('.').map(Number),y=String(b||0).split('.').map(Number);for(let i=0;i<3;i++){const d=(x[i]||0)-(y[i]||0);if(d)return d}return 0};
 const b64u=b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const st={busy:false,err:'',msg:''};
 const repaint=()=>{try{if(App.curMod&&App.curMod.id==='settings')App.render()}catch(e){}};
@@ -4773,8 +4780,14 @@ async function token(){const t=ls.get('zycie.sync.tok');if(!t){const e=new Error
 const g=async(path,opt={})=>{const at=await token();return fetch(G+path,{...opt,headers:{Authorization:'Bearer '+at,...(opt.headers||{})}})};
 const item=j=>({name:j.name,eTag:j.eTag,size:j.size,t:j.lastModifiedDateTime});
 async function head(name){const r=await g(':/'+encodeURIComponent(name)+'?$select=name,eTag,size,lastModifiedDateTime');if(r.status===404)return null;if(!r.ok)throw new Error('OneDrive: błąd '+r.status);return item(await r.json())}
-async function list(){const r=await g('/children?$select=name,eTag,size,lastModifiedDateTime&$top=200');if(!r.ok)throw new Error('OneDrive: błąd '+r.status);const j=await r.json();return(j.value||[]).filter(x=>/^mylife-.+\.json$/.test(x.name)).map(item)}
+async function list(){const r=await g('/children?$select=name,eTag,size,lastModifiedDateTime&$top=200');if(!r.ok)throw new Error('OneDrive: błąd '+r.status);const j=await r.json();return(j.value||[]).filter(x=>/^mylife-[a-z0-9]+\.json$/.test(x.name)).map(item)}
 async function download(name){const r=await g(':/'+encodeURIComponent(name)+':/content');if(!r.ok)throw new Error('OneDrive: błąd pobierania '+r.status);return r.text()}
+async function del(name){const r=await g(':/'+encodeURIComponent(name),{method:'DELETE'});if(!r.ok&&r.status!==404)throw new Error('OneDrive: błąd usuwania '+r.status)}
+let devs=null,devsAt=0,regTs=0;
+async function regRead(m){const r=await g(':/'+encodeURIComponent(rname(m))+':/content');if(r.status===404)return{devices:{}};if(!r.ok)throw new Error('OneDrive: błąd '+r.status);try{const j=JSON.parse(await r.text());return j&&j.devices?j:{devices:{}}}catch(e){return{devices:{}}}}
+async function regTouch(m,force){const me=devId(),now=Date.now(),cur=devs&&devs.devices[me];if(!force&&now-regTs<300000&&cur&&cur.e===m.etag&&cur.v===App.ver&&cur.n===devName())return;
+ const reg=await regRead(m);reg.devices[me]={n:devName(),v:App.ver,s:new Date().toISOString(),at:m.at||null,e:m.etag||null};await upload(rname(m),JSON.stringify(reg),null);devs=reg;devsAt=now;regTs=now}
+async function loadDevs(){const m=meta();if(!m||!m.sid||!connected()||!navigator.onLine||Date.now()-devsAt<60000)return;devsAt=Date.now();try{devs=await regRead(m);repaint()}catch(e){}}
 async function upload(name,text,etag){const bytes=new TextEncoder().encode(text).length;let r;
  if(bytes<3.5*1024*1024){r=await g(':/'+encodeURIComponent(name)+':/content',{method:'PUT',headers:{'Content-Type':'application/json',...(etag?{'If-Match':etag}:{})},body:text})}
  else{const s=await g(':/'+encodeURIComponent(name)+':/createUploadSession',{method:'POST',headers:{'Content-Type':'application/json',...(etag?{'If-Match':etag}:{})},body:JSON.stringify({item:{'@microsoft.graph.conflictBehavior':'replace'}})});if(s.status===412){const e=new Error('conflict');e.conflict=true;throw e}if(!s.ok)throw new Error('OneDrive: błąd '+s.status);const u=(await s.json()).uploadUrl;r=await fetch(u,{method:'PUT',headers:{'Content-Range':'bytes 0-'+(bytes-1)+'/'+bytes},body:text})}
@@ -4788,6 +4801,8 @@ async function applyRemote(m,rem){const text=await download(rem.name);let o=null
 function conflict(m,rem){return new Promise(res=>{let close;const done=fn=>async()=>{close();try{await fn()}catch(e){st.err=e.message}res();repaint()};
  const body=h('div',null,h('p',null,'Dane na tym urządzeniu i w OneDrive zmieniły się niezależnie. Wybierz, którą wersję zachować. Drugą można najpierw pobrać jako kopię.'),h('p',{class:'small muted'},'OneDrive: zmieniono '+(rem.t?new Date(rem.t).toLocaleString('pl-PL'):'?')));
  close=modal({title:'Konflikt wersji',body,actions:[btn('Zachowaj to urządzenie',done(()=>push(m,rem.eTag)),'primary'),btn('Zachowaj z OneDrive',done(async()=>{try{await App.exportJSON()}catch(e){}await applyRemote(m,rem)})),btn('Anuluj',done(async()=>{}),'ghost')]})})}
+function orphan(m){return new Promise(res=>{let close;const done=fn=>async()=>{close();try{await fn()}catch(e){st.err=e.message}res();repaint()};
+ close=modal({title:'Zapis w OneDrive zniknął',body:h('div',null,h('p',null,'Zapis tego konta w OneDrive został usunięty albo konto odłączono na innym urządzeniu (nowy kod).'),h('p',{class:'small muted'},'Dane na tym urządzeniu są nienaruszone. Możesz wysłać je ponownie jako nowy zapis albo wyłączyć synchronizację.')),actions:[btn('Wyślij to konto ponownie',done(()=>push(m,null)),'primary'),btn('Wyłącz synchronizację',done(async()=>{ls.del(metaKey(App.mode))})),btn('Anuluj',done(async()=>{}),'ghost')]})})}
 async function sync(manual){if(st.busy)return;const m=meta();if(!m||!m.sid)return;
  if(!App.db||!App.key){manual&&toast('Najpierw odblokuj konto');return}
  if(!navigator.onLine){manual&&toast('Brak internetu – zsynchronizuję po powrocie online');return}
@@ -4796,10 +4811,11 @@ async function sync(manual){if(st.busy)return;const m=meta();if(!m||!m.sid)retur
  try{
   if(m.needBase){m.dbHash=hashDb();m.needBase=0;setMeta(m)}
   const rem=await head(fname(m)),changed=hashDb()!==m.dbHash;
-  if(!rem){await push(m,null)}
+  if(!rem){if(m.etag)await orphan(m);else await push(m,null)}
   else if(m.etag&&rem.eTag===m.etag){if(changed)await push(m,rem.eTag);else{m.at=new Date().toISOString();setMeta(m)}}
   else if(m.etag&&!changed){await applyRemote(m,rem)}
   else await conflict(m,rem);
+  if(!st.err&&meta()&&meta().sid===m.sid&&m.etag)try{await regTouch(m)}catch(e){}
   if(manual&&!st.err)toast('Zsynchronizowano z OneDrive')
  }catch(e){if(e.conflict){try{const rem=await head(fname(m));await conflict(m,rem)}catch(x){st.err=x.message}}else{st.err=e.message||'Błąd synchronizacji';manual&&toast(st.err)}}
  st.busy=false;repaint()}
@@ -4807,30 +4823,70 @@ let tm=null;const sched=()=>{const m=meta();if(!m||!m.sid||m.auto===false||!conn
 const s0=App.save;App.save=function(){const r=s0.apply(this,arguments);try{sched()}catch(e){}return r};
 let lastVis=0;document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-lastVis>60000){lastVis=Date.now();const m=meta();if(m&&m.sid&&m.auto!==false)sync(false)}});
 window.addEventListener('online',()=>{const m=meta();if(m&&m.sid&&m.auto!==false)setTimeout(()=>sync(false),1500)});
-/* --- dołączenie z drugiego urządzenia --- */
-async function join(){if(!connected()){toast('Najpierw połącz z OneDrive (Ustawienia lub przycisk poniżej)');return}
- let L;try{L=await list()}catch(e){toast(e.message);return}
- if(!L.length){toast('W OneDrive nie ma jeszcze danych MyLife App');return}
- let close;const pick=async it=>{close();try{const text=await download(it.name);const o=JSON.parse(text);if(!o.enc||!o.c)throw new Error('Plik uszkodzony');const id='acc_'+uid(),A=App.accounts();A.push({id,name:o.nm||'OneDrive'});App.saveAccounts(A);localStorage.setItem('zycie.v1.'+id,text);setMeta({sid:it.name.slice(7,-5),etag:it.eTag,dbHash:null,needBase:1,auto:true,at:new Date().toISOString()},id);toast('Dodano konto z OneDrive. Wejdź hasłem ustawionym na pierwszym urządzeniu.');App.start()}catch(e){toast(e.message)}};
- close=modal({title:'Dane w OneDrive',body:h('div',{class:'col',style:{gap:'8px'}},h('p',{class:'small muted',style:{margin:0}},'Wybierz konto do pobrania na to urządzenie. Hasło jest takie samo jak na urządzeniu, z którego je wysłano.'),...L.map(it=>h('button',{type:'button',class:'btn',style:{textAlign:'left'},onclick:()=>pick(it)},'🔒 '+it.name+' · '+(it.t?new Date(it.t).toLocaleString('pl-PL'):'')+' · '+Math.round((it.size||0)/1024)+' KB'))),actions:[btn('Zamknij',()=>close())]})}
+/* --- dołączenie z drugiego urządzenia: tylko po wpisaniu kodu konta (bez listy kont) --- */
+let tries=0,lock=0;
+async function join(){if(!connected()){toast('Najpierw połącz z OneDrive');return}
+ let close;const inp=h('input',{type:'text',placeholder:'XXXX-XXXX-XX',autocapitalize:'characters',autocomplete:'off','aria-label':'Kod konta',style:{width:'100%',fontSize:'20px',letterSpacing:'.08em',textAlign:'center'}});const msg=h('div',{class:'small warn'});
+ const go=async()=>{const sid=normCode(inp.value);if(sid.length<6){msg.textContent='Wpisz cały kod konta.';return}if(Date.now()<lock){msg.textContent='Zbyt wiele prób. Spróbuj za chwilę.';return}
+  msg.textContent='Szukam…';try{const it=await head('mylife-'+sid+'.json');if(!it){tries++;if(tries>=5){lock=Date.now()+30000;tries=0}msg.textContent='Nie znaleziono konta o tym kodzie.';return}
+   const text=await download(it.name);const o=JSON.parse(text);if(!o.enc||!o.c)throw new Error('Plik uszkodzony');close();confirmJoin(sid,it,o,text)}catch(e){msg.textContent=e.message}};
+ inp.addEventListener('keydown',e=>{if(e.key==='Enter')go()});
+ close=modal({title:'Dodaj konto z innego urządzenia',body:h('div',{class:'col',style:{gap:'10px'}},h('p',{style:{margin:0}},'Na urządzeniu, na którym jesteś zalogowany, wejdź w Ustawienia → Synchronizacja OneDrive i kliknij „Pokaż kod”. Wpisz go tutaj.'),inp,msg,h('p',{class:'small muted',style:{margin:0}},'Dla bezpieczeństwa nie pokazuję listy kont. Po poprawnym kodzie poproszę jeszcze o hasło konta.')),actions:[btn('Dalej',go,'primary'),btn('Anuluj',()=>close(),'ghost')]});setTimeout(()=>inp.focus(),50)}
+function confirmJoin(sid,it,o,text){let close;
+ const add=()=>{close();try{const id='acc_'+uid(),A=App.accounts();A.push({id,name:o.nm||'Konto z OneDrive'});App.saveAccounts(A);localStorage.setItem('zycie.v1.'+id,text);setMeta({sid,etag:it.eTag,dbHash:null,needBase:1,auto:true,at:new Date().toISOString()},id);toast('Konto dodane. Wejdź hasłem tego konta.');App.start()}catch(e){toast(e.message)}};
+ close=modal({title:'Znaleziono konto „'+(o.nm||'bez nazwy')+'”',body:h('div',null,h('p',{style:{marginTop:0}},'Ostatnia zmiana: '+(it.t?new Date(it.t).toLocaleString('pl-PL'):'?')+' · '+Math.round((it.size||0)/1024)+' KB.'),h('p',{class:'small muted',style:{marginBottom:0}},'Po dodaniu wejdź na konto hasłem, które ustawiono na tamtym urządzeniu. Bez hasła nikt nie odczyta danych.')),actions:[btn('Dodaj na to urządzenie',add,'primary'),btn('Anuluj',()=>close(),'ghost')]})}
+async function removeRemote(sid){const m={sid};try{await del(fname(m))}catch(e){throw e}try{await del(rname(m))}catch(e){}}
+function removeByCode(){let close;const inp=h('input',{type:'text',placeholder:'XXXX-XXXX-XX',autocomplete:'off','aria-label':'Kod zapisu do usunięcia',style:{width:'100%',fontSize:'18px',textAlign:'center'}});const msg=h('div',{class:'small warn'});
+ const go=async()=>{const sid=normCode(inp.value);if(sid.length<6){msg.textContent='Wpisz cały kod.';return}try{const it=await head('mylife-'+sid+'.json');if(!it){msg.textContent='Nie znaleziono zapisu o tym kodzie.';return}close();confirmBox('Usunąć zapis o kodzie '+fmtCode(sid)+' z OneDrive? Urządzenia, które go używają, stracą synchronizację. Tej operacji nie można cofnąć.',async()=>{try{await removeRemote(sid);const mm=meta();if(mm&&mm.sid===sid)ls.del(metaKey(App.mode));toast('Zapis usunięty z OneDrive');repaint()}catch(e){toast(e.message)}},{yes:'Usuń zapis'})}catch(e){msg.textContent=e.message}};
+ close=modal({title:'Usuń zapis z OneDrive',body:h('div',{class:'col',style:{gap:'10px'}},h('p',{style:{margin:0}},'Wpisz kod zapisu, który chcesz usunąć (pokazuje go „Pokaż kod” na koncie, którego dotyczy).'),inp,msg),actions:[btn('Dalej',go,'primary'),btn('Anuluj',()=>close(),'ghost')]})}
+async function rotate(){const m=meta();if(!m)return;const old={sid:m.sid};st.busy=true;repaint();try{await sync(false);const nm={...meta()};nm.sid=uid().replace(/[^a-z0-9]/g,'').slice(0,10);nm.etag=null;nm.dbHash=null;setMeta(nm);const m2=meta();m2.dbHash=hashDb();m2.etag=null;setMeta(m2);await push(m2,null);await removeRemote(old.sid);devs=null;devsAt=0;await regTouch(m2,true);toast('Nowy kod gotowy. Pozostałe urządzenia zostały odłączone.')}catch(e){st.err=e.message;toast(e.message)}st.busy=false;repaint()}
 const tryAutoJoin=()=>{if(ls.get('zycie.sync.joinAfter')&&connected()&&!App.db){ls.del('zycie.sync.joinAfter');setTimeout(join,400)}};
 const startJoin=()=>{if(connected()){join();return}if(!cid()){toast('Brak ID aplikacji OneDrive');return}ls.set('zycie.sync.joinAfter',1);login()};
-const st0=App.start;App.start=function(){const r=st0.apply(this,arguments);try{const box=document.querySelector('#start .start-box');if(box&&web){box.append(h('div',{style:{marginTop:'18px',textAlign:'center'}},h('button',{type:'button',class:'btn primary',style:{width:'100%',maxWidth:'420px',padding:'14px 18px',fontSize:'16px'},onclick:startJoin},'Mam już konto na innym urządzeniu'),h('div',{class:'small muted',style:{marginTop:'6px'}},'Zalogujesz się do OneDrive i wybierzesz swoje konto.')));tryAutoJoin()}}catch(e){}return r};
+const st0=App.start;App.start=function(){const r=st0.apply(this,arguments);try{const box=document.querySelector('#start .start-box');if(box&&web){box.append(h('div',{style:{marginTop:'18px',textAlign:'center'}},h('button',{type:'button',class:'btn primary',style:{width:'100%',maxWidth:'420px',padding:'14px 18px',fontSize:'16px'},onclick:startJoin},'Mam już konto na innym urządzeniu'),h('div',{class:'small muted',style:{marginTop:'6px'}},'Zalogujesz się do OneDrive i wpiszesz kod konta z tamtego urządzenia.')));tryAutoJoin()}}catch(e){}return r};
 /* --- start --- */
 let seen=null;const r0=App.render;App.render=function(){const r=r0.apply(this,arguments);try{if(App.db&&seen!==App.mode){seen=App.mode;const m=meta();if(m&&m.sid&&m.auto!==false)setTimeout(()=>sync(false),2000)}if(!App.db)seen=null}catch(e){}return r};
 handleReturn().then(()=>{tryAutoJoin();if(ls.get('zycie.sync.just')){ls.del('zycie.sync.just');setTimeout(()=>{try{toast('Połączono z OneDrive')}catch(e){}},800)}});
 /* --- karta w Ustawieniach --- */
+let showCode=false,codeTm=null;
+const when=iso=>iso?new Date(iso).toLocaleString('pl-PL',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'nigdy';
 App.odCard=()=>{const m=meta(),conn=connected(),isDemo=App.mode==='demo';
  const rows=[h('h3',null,'Synchronizacja OneDrive'),h('p',{class:'small muted',style:{marginTop:0}},'Dane zostają na urządzeniu i działają offline. Gdy jesteś online, zaszyfrowana kopia konta synchronizuje się z OneDrive (folder aplikacji), a inne urządzenia pobierają zmiany. OneDrive widzi tylko zaszyfrowany plik, hasła nigdzie nie wysyłam.')];
  if(!web){rows.push(h('p',{class:'small warn'},'Synchronizacja działa po zainstalowaniu aplikacji z hostingu HTTPS (patrz poradnik). Z pliku lokalnego jest niedostępna.'));return h('div',{class:'card',style:{marginTop:'14px'}},...rows)}
  if(!cid()){const inp=h('input',{type:'text',placeholder:'Application (client) ID z Azure',style:{width:'100%'},'aria-label':'Application client ID',value:ls.get('zycie.sync.cid','')});
   rows.push(h('div',{class:'col',style:{gap:'8px'}},inp,h('div',{class:'tiny muted'},'Adres przekierowania do wpisania w Azure (typ: Single-page application): ',h('b',{style:{overflowWrap:'anywhere'}},redirect())),btn('Zapisz',()=>{const v=inp.value.trim();if(!v){toast('Wpisz ID');return}ls.set('zycie.sync.cid',v);App.render()},'primary')));return h('div',{class:'card',style:{marginTop:'14px'}},...rows)}
- rows.push(h('div',{class:'row wrap',style:{gap:'8px',alignItems:'center'}},h('span',{class:'chip '+(conn?'good':'warn')},conn?'Połączono z OneDrive':'Niepołączono'),conn?btn('Rozłącz OneDrive',()=>confirmBox('Rozłączyć OneDrive na tym urządzeniu? Dane lokalne i pliki w OneDrive zostają.',()=>{ls.del('zycie.sync.tok');App.render()}),'ghost sm'):btn('Połącz z OneDrive',login,'primary'),!conn&&ls.get('zycie.sync.cid','')?btn('Zmień ID',()=>{ls.del('zycie.sync.cid');App.render()},'ghost sm'):null,conn?btn('Pobierz konto z OneDrive',join,'sm'):null));
+ rows.push(h('div',{class:'row wrap',style:{gap:'8px',alignItems:'center'}},h('span',{class:'chip '+(conn?'good':'warn')},conn?'Połączono z OneDrive':'Niepołączono'),conn?btn('Rozłącz OneDrive',()=>confirmBox('Rozłączyć OneDrive na tym urządzeniu? Dane lokalne i pliki w OneDrive zostają.',()=>{ls.del('zycie.sync.tok');App.render()}),'ghost sm'):btn('Połącz z OneDrive',login,'primary'),!conn&&ls.get('zycie.sync.cid','')?btn('Zmień ID',()=>{ls.del('zycie.sync.cid');App.render()},'ghost sm'):null,conn?btn('Dodaj konto z innego urządzenia',join,'sm'):null));
  if(st.err)rows.push(h('p',{class:'small warn',style:{marginBottom:0}},st.err));
  if(conn&&isDemo)rows.push(h('p',{class:'small muted',style:{marginBottom:0}},'Wersja demo nie jest synchronizowana. Wejdź na swoje konto.'));
- else if(conn&&!m)rows.push(h('div',{style:{marginTop:'10px'}},btn('Synchronizuj to konto',async()=>{if(!App.key){toast('Konto bez hasła nie może być wysłane. Ustaw hasło.');return}setMeta({sid:uid(),dbHash:null,etag:null,auto:true});await sync(true)},'primary','refresh')));
- else if(conn&&m)rows.push(h('div',{class:'col',style:{gap:'8px',marginTop:'10px'}},h('div',{class:'small'},'Ostatnia synchronizacja: ',h('b',null,m.at?new Date(m.at).toLocaleString('pl-PL'):'jeszcze nie'),st.busy?' (trwa…)':''),
-  h('div',{class:'row wrap',style:{gap:'8px'}},btn('Synchronizuj teraz',()=>sync(true),'primary','refresh'),h('label',{class:'chk small'},h('input',{type:'checkbox',checked:m.auto!==false,onchange:e=>{m.auto=e.target.checked;setMeta(m)}}),'Automatycznie, gdy jestem online'),btn('Wyłącz dla tego konta',()=>confirmBox('Wyłączyć synchronizację tego konta? Plik w OneDrive zostaje.',()=>{ls.del(metaKey(App.mode));App.render()}),'ghost sm'))));
+ else if(conn&&!m)rows.push(h('div',{style:{marginTop:'10px'}},btn('Synchronizuj to konto',async()=>{if(!App.key){toast('Konto bez hasła nie może być wysłane. Ustaw hasło.');return}setMeta({sid:uid().replace(/[^a-z0-9]/g,'').slice(0,10),dbHash:null,etag:null,auto:true});await sync(true)},'primary','refresh')));
+ else if(conn&&m){
+  loadDevs();
+  rows.push(h('div',{class:'col',style:{gap:'10px',marginTop:'10px'}},h('div',{class:'small'},'Ostatnia synchronizacja: ',h('b',null,m.at?new Date(m.at).toLocaleString('pl-PL'):'jeszcze nie'),st.busy?' (trwa…)':''),
+   h('div',{class:'row wrap',style:{gap:'8px'}},btn('Synchronizuj teraz',()=>sync(true),'primary','refresh'),h('label',{class:'chk small'},h('input',{type:'checkbox',checked:m.auto!==false,onchange:e=>{m.auto=e.target.checked;setMeta(m)}}),'Automatycznie, gdy jestem online'))));
+  /* kod konta */
+  rows.push(h('div',{style:{marginTop:'14px'}},h('div',{class:'small muted'},'Kod konta (potrzebny, aby dodać to konto na innym urządzeniu)'),
+   h('div',{class:'row wrap',style:{gap:'8px',alignItems:'center',marginTop:'4px'}},h('b',{style:{fontSize:'20px',letterSpacing:'.08em',fontFamily:'ui-monospace,Menlo,Consolas,monospace'}},showCode?fmtCode(m.sid):'••••-••••-••'),
+    btn(showCode?'Ukryj':'Pokaż kod',()=>{showCode=!showCode;clearTimeout(codeTm);if(showCode)codeTm=setTimeout(()=>{showCode=false;repaint()},30000);App.render()},'sm'),
+    showCode?btn('Kopiuj',async()=>{try{await navigator.clipboard.writeText(fmtCode(m.sid));toast('Kod skopiowany')}catch(e){toast('Nie udało się skopiować')}},'sm ghost'):null),
+   h('div',{class:'tiny muted',style:{marginTop:'4px'}},'Kto zna kod, może dodać zapis na swoim urządzeniu, ale bez hasła konta nie odczyta danych. Nie ma listy kont do przeglądania.')));
+  /* urządzenia */
+  const me=devId(),all={...(devs?devs.devices:{})};all[me]={...(all[me]||{}),n:devName(),v:App.ver,s:new Date().toISOString(),at:m.at||null,e:m.etag||null};
+  const latest=Object.values(all).reduce((x,d)=>verCmp(d.v,x)>0?d.v:x,App.ver);
+  const list=Object.entries(all).sort((a,b)=>(a[0]===me?-1:b[0]===me?1:String(b[1].s).localeCompare(String(a[1].s))));
+  rows.push(h('div',{style:{marginTop:'16px'}},h('div',{class:'row',style:{justifyContent:'space-between',alignItems:'center'}},h('b',null,'Urządzenia na tym koncie ('+list.length+')'),btn('Odśwież',()=>{devsAt=0;loadDevs();toast('Odświeżam listę…')},'sm ghost')),
+   h('div',{class:'col',style:{gap:'8px',marginTop:'8px'}},...list.map(([id,d])=>{const mine=id===me,newest=verCmp(d.v,latest)>=0,synced=mine?(!!m.etag&&hashDb()===m.dbHash):(!!d.e&&d.e===m.etag);
+    return h('div',{class:'card',style:{background:'var(--card2)',boxShadow:'none',padding:'12px 14px'}},h('div',{class:'row wrap',style:{justifyContent:'space-between',gap:'6px'}},h('b',null,d.n+(mine?' (to urządzenie)':'')),!mine?btn('Usuń z listy',async()=>{try{const reg=await regRead(m);delete reg.devices[id];await upload(rname(m),JSON.stringify(reg),null);devs=reg;repaint()}catch(e){toast(e.message)}},'sm ghost'):null),
+     h('div',{class:'row wrap',style:{gap:'6px',marginTop:'6px'}},h('span',{class:'chip '+(newest?'good':'warn')},newest?'Najnowsza wersja '+d.v:'Starsza wersja '+d.v+' – zaktualizuj'),h('span',{class:'chip '+(synced?'good':'warn')},synced?'Dane zsynchronizowane':'Czeka na synchronizację')),
+     h('div',{class:'tiny muted',style:{marginTop:'4px'}},'Ostatnio aktywne: '+when(d.s)+' · ostatnia synchronizacja: '+when(d.at)))})),
+   h('div',{class:'tiny muted',style:{marginTop:'6px'}},'Wersje porównuję z najnowszą, jaką ma którekolwiek urządzenie. Lista odświeża się przy synchronizacji.'),
+   h('div',{class:'row wrap',style:{gap:'8px',alignItems:'center',marginTop:'8px'}},h('input',{type:'text',value:ls.get('zycie.devName',''),placeholder:'Nazwa tego urządzenia: '+autoName(),'aria-label':'Nazwa tego urządzenia',style:{flex:'1 1 200px'},onchange:e=>{ls.set('zycie.devName',e.target.value.trim());regTouch(m,true).then(repaint).catch(()=>{})}}))));
+  /* zarządzanie */
+  rows.push(h('details',{style:{marginTop:'16px'}},h('summary',{style:{cursor:'pointer',fontWeight:600}},'Zarządzanie zapisem w OneDrive'),
+   h('div',{class:'col',style:{gap:'8px',marginTop:'10px'}},
+    h('div',{class:'small muted'},'Odłączenie zmienia kod konta i usuwa stary zapis. Inne urządzenia tracą dostęp, dopóki nie dodasz ich ponownie nowym kodem.'),
+    btn('Odłącz wszystkie inne urządzenia (nowy kod)',()=>confirmBox('Wygenerować nowy kod i odłączyć wszystkie inne urządzenia od tego konta? Dane na nich zostaną, ale przestaną się synchronizować.',rotate,{yes:'Odłącz inne'}),'sm'),
+    btn('Usuń zapis tego konta z OneDrive',()=>confirmBox('Usunąć zapis tego konta z OneDrive? Dane na urządzeniach zostają, ale synchronizacja przestanie działać.',async()=>{try{await removeRemote(m.sid);ls.del(metaKey(App.mode));devs=null;toast('Zapis usunięty z OneDrive');App.render()}catch(e){toast(e.message)}},{yes:'Usuń z OneDrive'}),'sm'),
+    btn('Usuń zapis po kodzie…',removeByCode,'sm ghost'),
+    h('div',{class:'small muted'},'Dane lokalne możesz wyzerować niżej: „Wyczyść wszystkie dane konta”. Konto można też całkiem usunąć na ekranie wyboru konta.'))))}
  return h('div',{class:'card',style:{marginTop:'14px'}},...rows)};
 return{sync,join,login}})();
 /* ===== Minimalizm w stylu Apple: warstwa wyglądu nałożona na całą aplikację ===== */
