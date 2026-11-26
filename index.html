@@ -546,7 +546,7 @@ App.register({id:'settings',title:'Ustawienia',icon:'settings',group:'System',or
     h('div',{class:'small',style:{marginBottom:'10px'}},'Ostatnia kopia: ',s.lastBackup?h('b',null,dLabel(s.lastBackup.slice(0,10))):h('b',{class:'warn'},'jeszcze nie wykonano')),
     h('div',{class:'row wrap'},btn('Pobierz kopię (JSON)',()=>{App.exportJSON();App.render();toast('Kopia pobrana')},'primary','download'),btn('Wczytaj kopię',()=>App.pickImport(),'','upload'))),
    App.securityCard?App.securityCard():null,
-   App.installCard?App.installCard():null,App.modeCard?App.modeCard():null,App.helpCard?App.helpCard():null,App.updateCard?App.updateCard():null,App.odCard?App.odCard():null,App.histCard?App.histCard():null,
+   App.installCard?App.installCard():null,App.modeCard?App.modeCard():null,App.helpCard?App.helpCard():null,App.updateCard?App.updateCard():null,App.odCard?App.odCard():null,App.notifCard?App.notifCard():null,App.histCard?App.histCard():null,
    App.tourCard?App.tourCard():null,
    h('div',{class:'card'},h('h3',null,'Tryb i usuwanie'),
     h('div',{class:'col'},
@@ -4014,7 +4014,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='4.4';App.ver=VER;let reg=null,upd=false;
+const VER='4.5';App.ver=VER;let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');
@@ -5051,6 +5051,47 @@ function mv(b,l,r,ctx,key){const sl=sj(l),sr=sj(r);if(sl===sr)return l;
 /* base===null: brak wersji bazowej (pierwsza synchronizacja po aktualizacji): suma wpisów, bez propagacji usunięć */
 function run(base,local,remote){const ctx={conflicts:[],path:[],hasBase:!!base};const merged=mv(base||undefined,local,remote,ctx,'');return{merged,conflicts:ctx.conflicts}}
 return{run,sj}})();
+/* Powiadomienia (4.5): zadania, płatności, wydarzenia. Działają, gdy aplikacja jest otwarta lub działa w tle. */
+const Notify=(()=>{
+const K='zycie.notif',KS='zycie.notif.sent';
+const cfg=()=>{try{return Object.assign({on:false,hour:8,ev:true},JSON.parse(localStorage.getItem(K)||'{}'))}catch(e){return{on:false,hour:8,ev:true}}};
+const setCfg=c=>{try{localStorage.setItem(K,JSON.stringify(c))}catch(e){}};
+const sent=()=>{try{return JSON.parse(localStorage.getItem(KS)||'{}')}catch(e){return{}}};
+const mark=(k,d)=>{const s=sent();s[k]=d;const t=todayStr();Object.keys(s).forEach(x=>{if(s[x]<addDays(t,-3))delete s[x]});try{localStorage.setItem(KS,JSON.stringify(s))}catch(e){}};
+const supported=()=>'Notification' in window;
+const granted=()=>supported()&&Notification.permission==='granted';
+async function show(title,body,tag){try{const r=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();if(r&&r.showNotification){await r.showNotification(title,{body,tag,icon:'icon-192.png',badge:'icon-192.png',data:{url:'./'}});return true}}catch(e){}
+ try{new Notification(title,{body,tag,icon:'icon-192.png'});return true}catch(e){return false}}
+function gather(){const t=todayStr(),o={late:[],today:[],pay:[],ev:[]};if(!App.db)return o;
+ try{Tasks.items().filter(x=>x.status!=='done'&&x.due&&x.due<=t).forEach(x=>(x.due<t?o.late:o.today).push(x.title))}catch(e){}
+ try{Budget.dueList(t,addDays(t,1)).filter(x=>!x.paid).forEach(x=>o.pay.push(x.r.name+' ('+money(x.r.amount,x.r.cur)+')'+(x.date===t?'':' – jutro')))}catch(e){}
+ try{Cal.items(t,t,{all:true}).filter(x=>!x.done&&(x.kind==='ev'||x.st)).forEach(x=>o.ev.push(x))}catch(e){}
+ return o}
+async function check(force){const c=cfg();if(!force&&!c.on)return 0;if(!granted()||!App.db||App.mode==='demo')return 0;
+ const now=new Date(),t=todayStr(),o=gather();let n=0;
+ const digest=[];if(o.late.length)digest.push('Zaległe: '+o.late.slice(0,3).join(', ')+(o.late.length>3?' +'+(o.late.length-3):''));
+ if(o.today.length)digest.push('Na dziś: '+o.today.slice(0,3).join(', ')+(o.today.length>3?' +'+(o.today.length-3):''));
+ if(o.pay.length)digest.push('Płatności: '+o.pay.slice(0,3).join(', '));
+ const allday=o.ev.filter(x=>!x.st);if(allday.length)digest.push('Wydarzenia: '+allday.slice(0,3).map(x=>x.title).join(', '));
+ const dk='d:'+App.mode;if(digest.length&&(force||(now.getHours()>=c.hour&&sent()[dk]!==t))){if(await show('MyLife – dziś',digest.join('\n'),'digest')){mark(dk,t);n++}}
+ if(c.ev||force){const nm=now.getHours()*60+now.getMinutes();for(const x of o.ev.filter(x=>x.st)){const[h2,m2]=String(x.st).split(':').map(Number),d=h2*60+m2-nm,k='e:'+App.mode+':'+(x.id||x.title)+':'+x.st;
+  if(d>=0&&d<=15&&sent()[k]!==t){if(await show(x.title,'Za '+(d||'mniej niż 1')+' min ('+x.st+')','ev-'+k)){mark(k,t);n++}}}}
+ return n}
+async function enable(){if(!supported()){toast('Ta przeglądarka nie obsługuje powiadomień');return false}
+ let p=Notification.permission;if(p==='default')p=await Notification.requestPermission();
+ if(p!=='granted'){toast('Powiadomienia zablokowane – włącz je w ustawieniach systemu lub przeglądarki');return false}
+ const c=cfg();c.on=true;setCfg(c);return true}
+App.notifCard=()=>{if(App.mode==='demo')return null;const c=cfg(),perm=supported()?Notification.permission:'unsupported';
+ const hours=h('select',{'aria-label':'Godzina przypomnienia',onchange:e=>{c.hour=+e.target.value;setCfg(c)}},...[6,7,8,9,10,12,18].map(x=>h('option',{value:x,selected:x===c.hour},x+':00')));
+ const rows=[h('h3',null,'Powiadomienia'),h('p',{class:'small muted',style:{marginTop:0}},'Poranne podsumowanie (zadania na dziś i zaległe, płatności, wydarzenia) oraz przypomnienie 15 minut przed wydarzeniem. Treść zostaje na tym urządzeniu. Działają, gdy aplikacja jest otwarta lub działa w tle.')];
+ if(perm==='unsupported')rows.push(h('p',{class:'small warn'},'To urządzenie nie obsługuje powiadomień.'));
+ else{rows.push(h('div',{class:'row wrap',style:{gap:'8px',alignItems:'center'}},h('span',{class:'chip '+(c.on&&perm==='granted'?'good':'warn')},c.on&&perm==='granted'?'Włączone':perm==='denied'?'Zablokowane w systemie':'Wyłączone'),
+  c.on&&perm==='granted'?btn('Wyłącz',()=>{c.on=false;setCfg(c);App.render()},'ghost sm'):btn('Włącz powiadomienia',async()=>{if(await enable()){App.render();check(false)}},'primary')));
+  if(c.on&&perm==='granted')rows.push(h('div',{class:'row wrap',style:{gap:'10px',alignItems:'center',marginTop:'8px'}},h('label',{class:'small'},'Podsumowanie od godz. ',hours),h('label',{class:'chk small'},h('input',{type:'checkbox',checked:c.ev,onchange:e=>{c.ev=e.target.checked;setCfg(c)}}),'Przypomnij o wydarzeniach'),btn('Wyślij próbne',async()=>{const ok=await show('MyLife','Tak będą wyglądać powiadomienia.','test');if(!ok)toast('Nie udało się pokazać powiadomienia')},'sm')))}
+ return h('div',{class:'card',style:{marginTop:'14px'}},...rows)};
+setInterval(()=>{check(false)},60000);setTimeout(()=>check(false),4000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')check(false)});
+return{check,gather,cfg,show}})();
 /* ===== Tylko jako zainstalowana aplikacja: w zwykłej karcie przeglądarki pokazujemy instrukcję instalacji ===== */
 (()=>{
 const web=/^https?:/.test(location.protocol);if(!web)return;

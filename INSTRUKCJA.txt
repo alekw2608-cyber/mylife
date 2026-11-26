@@ -68,3 +68,10 @@ Aplikacja sama odnawia logowanie do OneDrive w tle (przy starcie, po powrocie do
 i co kilkanaście minut), więc zwykle nie trzeba klikać nic. Gdy Microsoft wymaga nowego logowania,
 w Ustawieniach pojawia się „Logowanie wygasło” i jeden przycisk „Zaloguj ponownie”.
 Dane na urządzeniu są wtedy nienaruszone, a krótkie przerwy w internecie nie wylogowują.
+
+CZĘŚĆ 10 – POWIADOMIENIA (wersja 4.5)
+Ustawienia → Powiadomienia → „Włącz powiadomienia” i zezwól w oknie systemu.
+Dostajesz poranne podsumowanie (zadania na dziś i zaległe, płatności, wydarzenia; godzinę wybierasz)
+oraz przypomnienie 15 minut przed wydarzeniem. Każde jest pokazywane raz.
+Powiadomienia działają, gdy aplikacja jest otwarta lub działa w tle. Zamknięta całkiem
+nie wyśle ich (bezpłatny hosting nie ma serwera push); po otwarciu pokaże zaległe podsumowanie.
