@@ -4014,7 +4014,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='4.3';App.ver=VER;let reg=null,upd=false;
+const VER='4.4';App.ver=VER;let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');
@@ -4770,8 +4770,8 @@ async function login(){const id=cid();if(!id){toast('Najpierw wpisz Application 
  const v=b64u(crypto.getRandomValues(new Uint8Array(48))),c=b64u(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(v))),state=b64u(crypto.getRandomValues(new Uint8Array(12)));
  ls.set('zycie.sync.pk',{v,state,hash:location.hash,t:Date.now()});
  location.href=AUTH+'/authorize?'+new URLSearchParams({client_id:id,response_type:'code',redirect_uri:redirect(),scope:SCOPE,state,code_challenge:c,code_challenge_method:'S256',response_mode:'query'})}
-async function tokenReq(p){const r=await fetch(AUTH+'/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:cid(),scope:SCOPE,...p})});const j=await r.json().catch(()=>({}));if(!r.ok||!j.access_token){const e=new Error(j.error_description||j.error||'auth');e.auth=true;throw e}
- const old=ls.get('zycie.sync.tok')||{};ls.set('zycie.sync.tok',{at:j.access_token,rt:j.refresh_token||old.rt,exp:Date.now()+(j.expires_in||3600)*1000});return j.access_token}
+async function tokenReq(p){let r;r=await fetch(AUTH+'/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:cid(),scope:SCOPE,...p})});const j=await r.json().catch(()=>({}));if(!r.ok||!j.access_token){const fatal=r.status>=400&&r.status<500&&r.status!==429&&r.status!==408;const e=new Error(j.error_description||j.error||'auth');e.auth=fatal;e.transient=!fatal;throw e}
+ const old=ls.get('zycie.sync.tok')||{};ls.set('zycie.sync.tok',{at:j.access_token,rt:j.refresh_token||old.rt,exp:Date.now()+(j.expires_in||3600)*1000});ls.del('zycie.sync.expired');return j.access_token}
 async function handleReturn(){if(!web)return;const q=new URLSearchParams(location.search);if(!q.has('code')&&!q.has('error'))return;
  const pk=ls.get('zycie.sync.pk');const clean=()=>history.replaceState(null,'',redirect()+(pk&&pk.hash?pk.hash:''));
  if(!pk||q.get('state')!==pk.state){clean();return}
@@ -4779,8 +4779,13 @@ async function handleReturn(){if(!web)return;const q=new URLSearchParams(locatio
  if(q.has('error')){clean();st.err='Logowanie przerwane: '+(q.get('error_description')||q.get('error'));return}
  try{await tokenReq({grant_type:'authorization_code',code:q.get('code'),redirect_uri:redirect(),code_verifier:pk.v});st.msg='Połączono z OneDrive.';ls.set('zycie.sync.just',1)}catch(e){st.err='Nie udało się zalogować: '+e.message}
  clean()}
+let tokP=null;
 async function token(){const t=ls.get('zycie.sync.tok');if(!t){const e=new Error('Brak połączenia z OneDrive');e.auth=true;throw e}if(t.exp>Date.now()+60000)return t.at;
- try{return await tokenReq({grant_type:'refresh_token',refresh_token:t.rt})}catch(e){if(e.auth){ls.del('zycie.sync.tok');e.message='Sesja OneDrive wygasła – połącz ponownie'}throw e}}
+ if(!tokP)tokP=tokenReq({grant_type:'refresh_token',refresh_token:t.rt}).catch(e=>{if(e.auth){ls.del('zycie.sync.tok');ls.set('zycie.sync.expired',1);e.message='Sesja OneDrive wygasła – zaloguj się ponownie'}throw e}).finally(()=>{tokP=null});
+ return tokP}
+/* ciche odświeżanie w tle: token odnawiany zanim wygaśnie, bez pytania o nic */
+const quiet=async()=>{const t=ls.get('zycie.sync.tok');if(!t||!navigator.onLine)return;if(t.exp-Date.now()<15*60000){try{await token()}catch(e){if(e.auth)repaint()}}};
+setInterval(quiet,10*60000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')quiet()});window.addEventListener('online',()=>setTimeout(quiet,1000));setTimeout(quiet,3000);
 const g=async(path,opt={})=>{const at=await token();return fetch(G+path,{...opt,headers:{Authorization:'Bearer '+at,...(opt.headers||{})}})};
 const item=j=>({name:j.name,eTag:j.eTag,size:j.size,t:j.lastModifiedDateTime});
 async function head(name){const r=await g(':/'+encodeURIComponent(name)+'?$select=name,eTag,size,lastModifiedDateTime');if(r.status===404)return null;if(!r.ok)throw new Error('OneDrive: błąd '+r.status);return item(await r.json())}
@@ -4829,7 +4834,7 @@ function orphan(m){return new Promise(res=>{let close;const done=fn=>async()=>{c
 async function sync(manual){if(st.busy)return;if(!manual&&Date.now()<skipAuto)return;if(manual)skipAuto=0;const m=meta();if(!m||!m.sid)return;
  if(!App.db||!App.key){manual&&toast('Najpierw odblokuj konto');return}
  if(!navigator.onLine){manual&&toast('Brak internetu – zsynchronizuję po powrocie online');return}
- if(!connected()){st.err='Połącz ponownie z OneDrive';repaint();return}
+ if(!connected()){st.err=ls.get('zycie.sync.expired')?'Logowanie do OneDrive wygasło – kliknij „Zaloguj ponownie” w Ustawieniach (dane są bezpieczne)':'Połącz ponownie z OneDrive';repaint();return}
  st.busy=true;st.err='';repaint();
  try{
   if(m.needBase){m.dbHash=hashDb();m.needBase=0;setMeta(m)}
@@ -4877,7 +4882,7 @@ App.odCard=()=>{const m=meta(),conn=connected(),isDemo=App.mode==='demo';
  if(!web){rows.push(h('p',{class:'small warn'},'Synchronizacja działa po zainstalowaniu aplikacji z hostingu HTTPS (patrz poradnik). Z pliku lokalnego jest niedostępna.'));return h('div',{class:'card',style:{marginTop:'14px'}},...rows)}
  if(!cid()){const inp=h('input',{type:'text',placeholder:'Application (client) ID z Azure',style:{width:'100%'},'aria-label':'Application client ID',value:ls.get('zycie.sync.cid','')});
   rows.push(h('div',{class:'col',style:{gap:'8px'}},inp,h('div',{class:'tiny muted'},'Adres przekierowania do wpisania w Azure (typ: Single-page application): ',h('b',{style:{overflowWrap:'anywhere'}},redirect())),btn('Zapisz',()=>{const v=inp.value.trim();if(!v){toast('Wpisz ID');return}ls.set('zycie.sync.cid',v);App.render()},'primary')));return h('div',{class:'card',style:{marginTop:'14px'}},...rows)}
- rows.push(h('div',{class:'row wrap',style:{gap:'8px',alignItems:'center'}},h('span',{class:'chip '+(conn?'good':'warn')},conn?'Połączono z OneDrive':'Niepołączono'),conn?btn('Rozłącz OneDrive',()=>confirmBox('Rozłączyć OneDrive na tym urządzeniu? Dane lokalne i pliki w OneDrive zostają.',()=>{ls.del('zycie.sync.tok');App.render()}),'ghost sm'):btn('Połącz z OneDrive',login,'primary'),!conn&&ls.get('zycie.sync.cid','')?btn('Zmień ID',()=>{ls.del('zycie.sync.cid');App.render()},'ghost sm'):null,conn?btn('Dodaj konto z innego urządzenia',join,'sm'):null));
+ rows.push(h('div',{class:'row wrap',style:{gap:'8px',alignItems:'center'}},h('span',{class:'chip '+(conn?'good':'warn')},conn?'Połączono z OneDrive':ls.get('zycie.sync.expired')?'Logowanie wygasło':'Niepołączono'),conn?btn('Rozłącz OneDrive',()=>confirmBox('Rozłączyć OneDrive na tym urządzeniu? Dane lokalne i pliki w OneDrive zostają.',()=>{ls.del('zycie.sync.tok');ls.del('zycie.sync.expired');App.render()}),'ghost sm'):btn(ls.get('zycie.sync.expired')?'Zaloguj ponownie':'Połącz z OneDrive',login,'primary'),!conn&&ls.get('zycie.sync.cid','')?btn('Zmień ID',()=>{ls.del('zycie.sync.cid');App.render()},'ghost sm'):null,conn?btn('Dodaj konto z innego urządzenia',join,'sm'):null));
  if(st.err)rows.push(h('p',{class:'small warn',style:{marginBottom:0}},st.err));
  if(conn&&isDemo)rows.push(h('p',{class:'small muted',style:{marginBottom:0}},'Wersja demo nie jest synchronizowana. Wejdź na swoje konto.'));
  else if(conn&&!m)rows.push(h('div',{style:{marginTop:'10px'}},btn('Synchronizuj to konto',async()=>{if(!App.key){toast('Konto bez hasła nie może być wysłane. Ustaw hasło.');return}setMeta({sid:uid().replace(/[^a-z0-9]/g,'').slice(0,10),dbHash:null,etag:null,auto:true});await sync(true)},'primary','refresh')));

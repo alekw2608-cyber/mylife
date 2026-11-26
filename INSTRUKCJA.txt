@@ -62,3 +62,9 @@ Gdy zmienisz dane na dwóch urządzeniach naraz, aplikacja scala je wpis po wpis
 nowy wydatek z telefonu i nowe zadanie z komputera zostają oba. Okno z pytaniem
 pojawia się tylko, gdy TEN SAM wpis zmieniono na obu urządzeniach – wybierasz wtedy wersję.
 Przed każdym scaleniem robiona jest kopia (Ustawienia → Historia).
+
+CZĘŚĆ 9 – CICHE LOGOWANIE DO ONEDRIVE (wersja 4.4)
+Aplikacja sama odnawia logowanie do OneDrive w tle (przy starcie, po powrocie do aplikacji
+i co kilkanaście minut), więc zwykle nie trzeba klikać nic. Gdy Microsoft wymaga nowego logowania,
+w Ustawieniach pojawia się „Logowanie wygasło” i jeden przycisk „Zaloguj ponownie”.
+Dane na urządzeniu są wtedy nienaruszone, a krótkie przerwy w internecie nie wylogowują.
