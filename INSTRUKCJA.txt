@@ -81,3 +81,9 @@ Emoji w menu, przyciskach i nagłówkach zastąpiły spójne ikony liniowe w sty
 Puste panele pokazują delikatną ilustrację zamiast samego tekstu. Widoki na telefonie
 mają poprawione pola szybkiego dodawania i miejsce pod przyciskiem „+”.
 Emoji wpisane przez Ciebie (notatki, nazwy, nastroje) zostają bez zmian.
+
+CZĘŚĆ 12 – PORZĄDKI NA TELEFONIE (wersja 4.7)
+Tytuły modułów zawijają się zamiast się ucinać, strony nie przesuwają się w bok,
+osiągnięcia pokazują się jako jedno powiadomienie (dotknij, by zamknąć),
+przyciski są większe na ekranie dotykowym, zakładki mają cień przy krawędzi,
+Kalendarz na telefonie otwiera się w widoku 3 dni, a pytania w Asystencie są przyciskami.
