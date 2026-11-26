@@ -518,7 +518,7 @@ App.register({id:'dashboard',title:'Dashboard',icon:'dashboard',group:'',order:0
   const ws=[];App.mods.forEach(m=>(m.widgets||[]).forEach(w=>ws.push(Object.assign({mod:m},w))));
   ws.unshift({id:'core-notes',title:'Powiadomienia i przypomnienia',size:1,mod:App.mods[0],render:n=>{const a=App.notes();
     if(!a.length){n.append(h('div',{class:'empty small'},h('b',null,'Wszystko pod kontrolą'),'Brak pilnych powiadomień.'));return}
-    a.slice(0,8).forEach(x=>n.append(h('div',{class:'li',style:{cursor:x.go?'pointer':'default'},onclick:()=>x.go&&x.go()},h('span',{class:'dot',style:{background:x.lvl==='bad'?'var(--bad)':x.lvl==='warn'?'var(--warn)':'var(--accent)'}}),h('div',{class:'sp small'},x.text))))}});
+    const gp={};const L=[];a.forEach(x=>{if(x.grp){if(!gp[x.grp]){gp[x.grp]={...x,items:[]};L.push(gp[x.grp])}gp[x.grp].items.push(x.gi)}else L.push(x)});L.forEach(x=>{if(x.items&&x.items.length>1)x.text=x.gl+x.items.join(', ')});L.slice(0,8).forEach(x=>n.append(h('div',{class:'li',style:{cursor:x.go?'pointer':'default'},onclick:()=>x.go&&x.go()},h('span',{class:'dot',style:{background:x.lvl==='bad'?'var(--bad)':x.lvl==='warn'?'var(--warn)':'var(--accent)'}}),h('div',{class:'sp small'},x.text))))}});
   let order=s.widgetOrder.filter(id=>ws.some(w=>w.id===id));ws.forEach(w=>{if(!order.includes(w.id))order.push(w.id)});
   const hidden=s.widgetHidden;let edit=el._edit||false;
   const hdr=h('div',{class:'row wrap',style:{margin:'6px 0 18px'}},h('div',{class:'sp'},h('div',{style:{fontSize:'30px',fontWeight:700,letterSpacing:'-.03em'}},hi+(s.userName?', '+s.userName:'')),h('div',{class:'muted'},`${['niedziela','poniedziałek','wtorek','środa','czwartek','piątek','sobota'][new Date().getDay()]}, ${dLabel(todayStr())}`)),
@@ -991,7 +991,7 @@ App.register({id:'budget',title:'Finanse i budżet',icon:'wallet',group:'Życie'
 
 App.notifiers.push(()=>{const out=[],cm=curMk(),r=M.calc(cm),go=()=>{ui.tab='overview';ui.mk=cm;App.go('budget')};
  const usage={};r.lines.cost.forEach(l=>{const u=usage[l.catId]||(usage[l.catId]={pl:0,ac:0});u.pl+=l.planned;u.ac+=l.actual});
- Object.keys(usage).forEach(k=>{const u=usage[k];if(u.pl>0){const p=pct(u.ac,u.pl);if(p>100)out.push({lvl:'bad',text:`Przekroczono budżet „${M.catName(k)}” (${p}%).`,go});else if(p>=80)out.push({lvl:'warn',text:`Budżet „${M.catName(k)}” wykorzystany w ${p}%.`,go})}});
+ Object.keys(usage).forEach(k=>{const u=usage[k];if(u.pl>0){const p=pct(u.ac,u.pl);if(p>100)out.push({lvl:'bad',grp:'bud-bad',gl:'Przekroczono budżet: ',gi:`${M.catName(k)} (${p}%)`,text:`Przekroczono budżet „${M.catName(k)}” (${p}%).`,go});else if(p>=80)out.push({lvl:'warn',grp:'bud-warn',gl:'Budżet bliski limitu: ',gi:`${M.catName(k)} (${p}%)`,text:`Budżet „${M.catName(k)}” wykorzystany w ${p}%.`,go})}});
  if(!r.enough)out.push({lvl:'bad',text:`W tym miesiącu środków nie wystarczy (brakuje ${money(-r.leftover)}).`,go});
  M.overdue().slice(0,3).forEach(o=>out.push({lvl:'bad',text:`Zaległy rachunek: ${o.r.name} (${dShort(o.date)}, ${money(o.r.amount,o.r.cur)}).`,go:()=>{ui.tab='bills';App.go('budget')}}));
  const t=todayStr();M.dueList(t,addDays(t,60)).filter(x=>{if(x.paid||x.r.auto)return false;const rm=x.r.remind==null?3:+x.r.remind;return x.date<=addDays(t,rm)}).forEach(x=>{const dd=Math.round((new Date(x.date)-new Date(t))/864e5);out.push({lvl:dd<=1?'warn':'info',text:(x.r.kind==='sub'?'Odnowienie subskrypcji ':'Do zapłaty: ')+x.r.name+' – '+(dd===0?'dziś':dd===1?'jutro':'za '+dd+' dni ('+dShort(x.date)+')')+', '+money(x.r.amount,x.r.cur)+'.',go:()=>{ui.tab='bills';App.go('budget')}})});
@@ -4024,7 +4024,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='4.7';App.ver=VER;let reg=null,upd=false;
+const VER='4.8';App.ver=VER;let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');

@@ -87,3 +87,7 @@ Tytuły modułów zawijają się zamiast się ucinać, strony nie przesuwają si
 osiągnięcia pokazują się jako jedno powiadomienie (dotknij, by zamknąć),
 przyciski są większe na ekranie dotykowym, zakładki mają cień przy krawędzi,
 Kalendarz na telefonie otwiera się w widoku 3 dni, a pytania w Asystencie są przyciskami.
+
+CZĘŚĆ 13 – DASHBOARD (wersja 4.8)
+Ostrzeżenia o budżecie na Dashboardzie są zgrupowane: jedna linia „Przekroczono budżet: …”
+i jedna „Budżet bliski limitu: …” zamiast osobnej linii dla każdej kategorii.
