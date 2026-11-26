@@ -105,3 +105,11 @@ CZĘŚĆ 15 – MODA: WARSTWY, PODGLĄD, ZDJĘCIA (wersja 5.0)
 • Zakładka „Dziennik” zbiera zdjęcia i przypomina „Tego dnia kiedyś”. Dotknij zdjęcia, by zobaczyć
   szczegóły i założyć ten strój ponownie.
 • Noszenie i plan → „Pokaż sylwetki”: cały tydzień z sylwetkami.
+
+CZĘŚĆ 16 – NOWE FUNKCJE (wersja 5.1)
+• Nawyki → „Pauza”: choroba, urlop lub podróż zamrażają serię. Dni pauzy nie przerywają jej i nie liczą się do statystyk.
+• Finanse → nowy wpis: zdjęcie paragonu (aparat lub plik). W liście wpisów pojawia się ikona paragonu.
+• Kalendarz → wydarzenie: „Czas dojazdu”. W szczegółach widzisz godzinę wyjścia, a powiadomienie
+  „Czas wyjść” przychodzi z wyprzedzeniem dojazdu.
+• Analityka → „Cele roczne”: oszczędności, przychody, limit wydatków, liczba zadań lub własny cel.
+  Postęp liczy się sam z Finansów i Zadań. Pasek postępu jest też widżetem na Dashboardzie.
