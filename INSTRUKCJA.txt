@@ -56,3 +56,9 @@ Plik MyLife-App.html otwierany z dysku nie jest blokowany.
 
 CZĘŚĆ 7. HISTORIA WERSJI I KOSZ (od 4.1)
 Ustawienia → „Historia wersji i kosz”. Aplikacja sama zapisuje zaszyfrowane migawki konta na urządzeniu (co najmniej godzinę odstępu, z 15 dni) i trzyma usunięte wpisy 30 dni. Przed przywróceniem, wyczyszczeniem danych i pobraniem zmian z OneDrive zapisuje dodatkową migawkę. Przypomnienie o kopii pojawia się, gdy nie było kopii pliku ani synchronizacji OneDrive od 7 dni.
+
+CZĘŚĆ 8 – SCALANIE ZMIAN (wersja 4.3)
+Gdy zmienisz dane na dwóch urządzeniach naraz, aplikacja scala je wpis po wpisie:
+nowy wydatek z telefonu i nowe zadanie z komputera zostają oba. Okno z pytaniem
+pojawia się tylko, gdy TEN SAM wpis zmieniono na obu urządzeniach – wybierasz wtedy wersję.
+Przed każdym scaleniem robiona jest kopia (Ustawienia → Historia).

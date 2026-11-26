@@ -4014,7 +4014,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='4.1';App.ver=VER;let reg=null,upd=false;
+const VER='4.3';App.ver=VER;let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');
@@ -4749,6 +4749,10 @@ const meta=(id)=>{id=id||App.mode;return id&&id!=='demo'?ls.get(metaKey(id),null
 const setMeta=(m,id)=>ls.set(metaKey(id||App.mode),m);
 const hash=s=>{let a=5381,b=52711;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);a=((a<<5)+a^c)>>>0;b=((b<<5)+b^c)>>>0}return a.toString(36)+b.toString(36)+s.length};
 const hashDb=()=>hash(JSON.stringify(App.db));
+const baseKey=id=>'zycie.sbase.'+(id||App.mode);
+const setBaseStr=(t,id)=>{try{localStorage.setItem(baseKey(id),t)}catch(e){}};
+const openEnv=async t=>{const o=JSON.parse(t);if(!o||!o.enc||!App.key)throw new Error('nie można odczytać');return Crypt.open(App.key,o)};
+let skipAuto=0;
 const fname=m=>'mylife-'+m.sid+'.json';
 const rname=m=>'mylife-'+m.sid+'.dev.json';
 const fmtCode=x=>(x||'').toUpperCase().replace(/(.{4})(?=.)/g,'$1-');
@@ -4795,15 +4799,34 @@ async function upload(name,text,etag){const bytes=new TextEncoder().encode(text)
  if(!r.ok)throw new Error('OneDrive: błąd zapisu '+r.status);return item(await r.json())}
 /* --- synchronizacja --- */
 async function envelope(){App.save(true);await App._p;const s=localStorage.getItem('zycie.v1.'+App.mode);let o=null;try{o=JSON.parse(s)}catch(e){}if(!o||!o.enc)throw new Error('Konto musi mieć hasło (dane są wysyłane tylko zaszyfrowane)');o.nm=App.accName(App.mode);return JSON.stringify(o)}
-async function push(m,etag){const h0=hashDb();const text=await envelope();const r=await upload(fname(m),text,etag);m.etag=r.eTag;m.dbHash=h0;m.at=new Date().toISOString();setMeta(m)}
+async function push(m,etag){const h0=hashDb();const text=await envelope();const r=await upload(fname(m),text,etag);m.etag=r.eTag;m.dbHash=h0;m.at=new Date().toISOString();setMeta(m);setBaseStr(text)}
 async function applyRemote(m,rem){try{await App.snapshot('Przed pobraniem z OneDrive',true)}catch(e){}const text=await download(rem.name);let o=null;try{o=JSON.parse(text)}catch(e){}if(!o||!o.enc||!o.c)throw new Error('Plik w OneDrive jest uszkodzony');
- await App._p;clearTimeout(App._t);const mode=App.mode;m.etag=rem.eTag;m.dbHash=null;m.needBase=1;m.at=new Date().toISOString();setMeta(m,mode);App.db=null;localStorage.setItem('zycie.v1.'+mode,text);toast('Pobrano nowsze dane z OneDrive. Odblokuj konto hasłem.');setTimeout(()=>location.reload(),900)}
+ await App._p;clearTimeout(App._t);const mode=App.mode;m.etag=rem.eTag;m.dbHash=null;m.needBase=1;m.at=new Date().toISOString();setMeta(m,mode);setBaseStr(text,mode);App.db=null;localStorage.setItem('zycie.v1.'+mode,text);toast('Pobrano nowsze dane z OneDrive. Odblokuj konto hasłem.');setTimeout(()=>location.reload(),900)}
 function conflict(m,rem){return new Promise(res=>{let close;const done=fn=>async()=>{close();try{await fn()}catch(e){st.err=e.message}res();repaint()};
  const body=h('div',null,h('p',null,'Dane na tym urządzeniu i w OneDrive zmieniły się niezależnie. Wybierz, którą wersję zachować. Drugą można najpierw pobrać jako kopię.'),h('p',{class:'small muted'},'OneDrive: zmieniono '+(rem.t?new Date(rem.t).toLocaleString('pl-PL'):'?')));
  close=modal({title:'Konflikt wersji',body,actions:[btn('Zachowaj to urządzenie',done(()=>push(m,rem.eTag)),'primary'),btn('Zachowaj z OneDrive',done(async()=>{try{await App.exportJSON()}catch(e){}await applyRemote(m,rem)})),btn('Anuluj',done(async()=>{}),'ghost')]})})}
+const FN={title:'Tytuł',name:'Nazwa',amount:'Kwota',status:'Status',date:'Data',due:'Termin',note:'Notatka',desc:'Opis',prio:'Priorytet',cat:'Kategoria',catId:'Kategoria',start:'Początek',end:'Koniec',time:'Godzina',party:'Kontrahent'};
+function askConflicts(cs){return new Promise(res=>{let close;const rows=cs.map((c,i)=>{const nm='cf'+i,L=h('input',{type:'radio',name:nm,checked:true}),R=h('input',{type:'radio',name:nm});
+  const txt={both:['Wersja z tego urządzenia','Wersja z drugiego urządzenia','Zmieniono na obu urządzeniach'+(c.fields.length?' (pola: '+c.fields.map(f=>FN[f]||f).join(', ')+')':'')],'del-remote':['Zachowaj (zmieniony tutaj)','Usuń','Zmieniono tutaj, ale na drugim urządzeniu usunięto'],'del-local':['Zostaw usunięty','Przywróć (zmieniony na drugim)','Usunięto tutaj, ale na drugim urządzeniu zmieniono']}[c.kind];
+  return{L,R,el:h('div',{class:'card',style:{background:'var(--card2)',boxShadow:'none',padding:'12px 14px'}},h('b',{style:{overflowWrap:'anywhere'}},c.label),h('div',{class:'tiny muted'},(c.where?c.where+' · ':'')+txt[2]),
+   h('label',{class:'chk small',style:{display:'flex',gap:'8px',marginTop:'6px'}},L,txt[0]),h('label',{class:'chk small',style:{display:'flex',gap:'8px',marginTop:'4px'}},R,txt[1]))}});
+ const go=()=>{const p=rows.map(r=>r.R.checked?'remote':'local');close();res(p)};
+ close=modal({title:'Ten sam wpis zmieniono na dwóch urządzeniach',body:h('div',{class:'col',style:{gap:'8px'}},h('p',{class:'small muted',style:{margin:0}},'Wszystko inne scaliłem automatycznie. Wybierz, którą wersję zachować w tych '+cs.length+' wpisach:'),...rows.map(r=>r.el)),actions:[btn('Scal',go,'primary'),btn('Anuluj',()=>{close();res(null)},'ghost')]})})}
+async function pullInPlace(m,rem){const text=await download(rem.name);let db;try{db=await openEnv(text)}catch(e){return applyRemote(m,rem)}
+ try{await App.snapshot('Przed pobraniem z OneDrive',true)}catch(e){}
+ App.load(App.mode,db);App.render();m.etag=rem.eTag;m.at=new Date().toISOString();m.dbHash=hashDb();setBaseStr(text);setMeta(m);toast('Pobrano zmiany z drugiego urządzenia')}
+async function mergeFlow(m,rem,depth=0){const text=await download(rem.name);let remote;try{remote=await openEnv(text)}catch(e){return conflict(m,rem)}
+ let base=null;try{const bs=localStorage.getItem(baseKey());if(bs)base=await openEnv(bs)}catch(e){base=null}
+ try{await App.snapshot('Przed scaleniem z OneDrive',true)}catch(e){}
+ await App._p;const local=JSON.parse(JSON.stringify(App.db));
+ const res=Merge.run(base,local,remote);
+ if(res.conflicts.length){const picks=await askConflicts(res.conflicts);if(!picks){skipAuto=Date.now()+15*60000;st.err='Scalanie anulowane. Kliknij „Synchronizuj teraz”, gdy będziesz gotowy.';return}res.conflicts.forEach((c,i)=>c.apply(picks[i]))}
+ App.load(App.mode,res.merged);App.render();m.etag=rem.eTag;setBaseStr(text);
+ try{await push(m,rem.eTag)}catch(e){if(e.conflict&&depth<3){const r2=await head(fname(m));if(r2)return mergeFlow(m,r2,depth+1)}throw e}
+ toast(res.conflicts.length?'Scalono zmiany z OneDrive (rozstrzygnięto: '+res.conflicts.length+')':'Scalono zmiany z drugiego urządzenia')}
 function orphan(m){return new Promise(res=>{let close;const done=fn=>async()=>{close();try{await fn()}catch(e){st.err=e.message}res();repaint()};
  close=modal({title:'Zapis w OneDrive zniknął',body:h('div',null,h('p',null,'Zapis tego konta w OneDrive został usunięty albo konto odłączono na innym urządzeniu (nowy kod).'),h('p',{class:'small muted'},'Dane na tym urządzeniu są nienaruszone. Możesz wysłać je ponownie jako nowy zapis albo wyłączyć synchronizację.')),actions:[btn('Wyślij to konto ponownie',done(()=>push(m,null)),'primary'),btn('Wyłącz synchronizację',done(async()=>{ls.del(metaKey(App.mode))})),btn('Anuluj',done(async()=>{}),'ghost')]})})}
-async function sync(manual){if(st.busy)return;const m=meta();if(!m||!m.sid)return;
+async function sync(manual){if(st.busy)return;if(!manual&&Date.now()<skipAuto)return;if(manual)skipAuto=0;const m=meta();if(!m||!m.sid)return;
  if(!App.db||!App.key){manual&&toast('Najpierw odblokuj konto');return}
  if(!navigator.onLine){manual&&toast('Brak internetu – zsynchronizuję po powrocie online');return}
  if(!connected()){st.err='Połącz ponownie z OneDrive';repaint();return}
@@ -4812,12 +4835,12 @@ async function sync(manual){if(st.busy)return;const m=meta();if(!m||!m.sid)retur
   if(m.needBase){m.dbHash=hashDb();m.needBase=0;setMeta(m)}
   const rem=await head(fname(m)),changed=hashDb()!==m.dbHash;
   if(!rem){if(m.etag)await orphan(m);else await push(m,null)}
-  else if(m.etag&&rem.eTag===m.etag){if(changed)await push(m,rem.eTag);else{m.at=new Date().toISOString();setMeta(m)}}
-  else if(m.etag&&!changed){await applyRemote(m,rem)}
-  else await conflict(m,rem);
+  else if(m.etag&&rem.eTag===m.etag){if(changed)await push(m,rem.eTag);else{m.at=new Date().toISOString();setMeta(m);if(!localStorage.getItem(baseKey())){const cur=localStorage.getItem('zycie.v1.'+App.mode);if(cur)setBaseStr(cur)}}}
+  else if(m.etag&&!changed){await pullInPlace(m,rem)}
+  else await mergeFlow(m,rem);
   if(!st.err&&meta()&&meta().sid===m.sid&&m.etag)try{await regTouch(m)}catch(e){}
   if(manual&&!st.err)toast('Zsynchronizowano z OneDrive')
- }catch(e){if(e.conflict){try{const rem=await head(fname(m));await conflict(m,rem)}catch(x){st.err=x.message}}else{st.err=e.message||'Błąd synchronizacji';manual&&toast(st.err)}}
+ }catch(e){if(e.conflict){try{const rem=await head(fname(m));await mergeFlow(m,rem)}catch(x){st.err=x.message}}else{st.err=e.message||'Błąd synchronizacji';manual&&toast(st.err)}}
  st.busy=false;repaint()}
 let tm=null;const sched=()=>{const m=meta();if(!m||!m.sid||m.auto===false||!connected())return;clearTimeout(tm);tm=setTimeout(()=>sync(false),20000)};
 const s0=App.save;App.save=function(){const r=s0.apply(this,arguments);try{sched()}catch(e){}return r};
@@ -4833,7 +4856,7 @@ async function join(){if(!connected()){toast('Najpierw połącz z OneDrive');ret
  inp.addEventListener('keydown',e=>{if(e.key==='Enter')go()});
  close=modal({title:'Dodaj konto z innego urządzenia',body:h('div',{class:'col',style:{gap:'10px'}},h('p',{style:{margin:0}},'Na urządzeniu, na którym jesteś zalogowany, wejdź w Ustawienia → Synchronizacja OneDrive i kliknij „Pokaż kod”. Wpisz go tutaj.'),inp,msg,h('p',{class:'small muted',style:{margin:0}},'Dla bezpieczeństwa nie pokazuję listy kont. Po poprawnym kodzie poproszę jeszcze o hasło konta.')),actions:[btn('Dalej',go,'primary'),btn('Anuluj',()=>close(),'ghost')]});setTimeout(()=>inp.focus(),50)}
 function confirmJoin(sid,it,o,text){let close;
- const add=()=>{close();try{const id='acc_'+uid(),A=App.accounts();A.push({id,name:o.nm||'Konto z OneDrive'});App.saveAccounts(A);localStorage.setItem('zycie.v1.'+id,text);setMeta({sid,etag:it.eTag,dbHash:null,needBase:1,auto:true,at:new Date().toISOString()},id);toast('Konto dodane. Wejdź hasłem tego konta.');App.start()}catch(e){toast(e.message)}};
+ const add=()=>{close();try{const id='acc_'+uid(),A=App.accounts();A.push({id,name:o.nm||'Konto z OneDrive'});App.saveAccounts(A);localStorage.setItem('zycie.v1.'+id,text);setMeta({sid,etag:it.eTag,dbHash:null,needBase:1,auto:true,at:new Date().toISOString()},id);setBaseStr(text,id);toast('Konto dodane. Wejdź hasłem tego konta.');App.start()}catch(e){toast(e.message)}};
  close=modal({title:'Znaleziono konto „'+(o.nm||'bez nazwy')+'”',body:h('div',null,h('p',{style:{marginTop:0}},'Ostatnia zmiana: '+(it.t?new Date(it.t).toLocaleString('pl-PL'):'?')+' · '+Math.round((it.size||0)/1024)+' KB.'),h('p',{class:'small muted',style:{marginBottom:0}},'Po dodaniu wejdź na konto hasłem, które ustawiono na tamtym urządzeniu. Bez hasła nikt nie odczyta danych.')),actions:[btn('Dodaj na to urządzenie',add,'primary'),btn('Anuluj',()=>close(),'ghost')]})}
 async function removeRemote(sid){const m={sid};try{await del(fname(m))}catch(e){throw e}try{await del(rname(m))}catch(e){}}
 function removeByCode(){let close;const inp=h('input',{type:'text',placeholder:'XXXX-XXXX-XX',autocomplete:'off','aria-label':'Kod zapisu do usunięcia',style:{width:'100%',fontSize:'18px',textAlign:'center'}});const msg=h('div',{class:'small warn'});
@@ -4979,6 +5002,50 @@ App.histCard=()=>{if(App.mode==='demo'||!App.db)return null;const n=rd(App.mode)
  return h('div',{class:'card',style:{marginTop:'14px'}},h('h3',null,'Historia wersji i kosz'),h('p',{class:'small muted',style:{marginTop:0}},'Aplikacja sama zapisuje kopie konta na tym urządzeniu i trzyma usunięte wpisy przez 30 dni, więc pomyłkę da się cofnąć nawet po zamknięciu aplikacji.'),
   h('div',{class:'row wrap',style:{gap:'8px'}},btn('Historia wersji ('+n+')',openHistory,'primary'),btn('Kosz ('+k+')',openTrash)))};
 })();
+/* ===== Scalanie zmian (3-way): wersja bazowa + lokalna + zdalna, wpis po wpisie ===== */
+const Merge=(()=>{
+const sj=v=>{if(v===undefined)return'\u0000u';return JSON.stringify(v,(k,x)=>x&&typeof x==='object'&&!Array.isArray(x)?Object.keys(x).sort().reduce((o,kk)=>(o[kk]=x[kk],o),{}):x)};
+const isObj=v=>v&&typeof v==='object'&&!Array.isArray(v);
+const isItem=x=>isObj(x)&&x.id!=null;
+function isIdArr(b,l,r){const A=[b,l,r];if(!A.every(a=>a===undefined||Array.isArray(a)))return false;let n=0;
+ for(const a of A){if(!a)continue;const ids=new Set();for(const x of a){if(!isItem(x)||ids.has(x.id))return false;ids.add(x.id);n++}}return n>0}
+const mapOf=a=>{const m=new Map();(a||[]).forEach(x=>m.set(x.id,x));return m};
+const titleOf=it=>String(it.title||it.name||it.text||it.party||it.label||it.front||it.q||'Wpis').slice(0,80);
+function mkConflict(ctx,kind,item,remoteItem,apply){return{label:titleOf(item||remoteItem),where:ctx.path.join(' › '),kind,fields:[],apply}}
+/* łączy dwa wersje jednego wpisu po polach najwyższego poziomu */
+function mergeItem(b,l,r,ctx){const out={},bad=[];const keys=new Set([...Object.keys(b||{}),...Object.keys(l),...Object.keys(r)]);
+ for(const k of keys){const vb=b?b[k]:undefined,vl=l[k],vr=r[k],sl=sj(vl),sr=sj(vr),sb=sj(vb);let v;
+  if(sl===sr)v=vl;else if(b&&sb===sl)v=vr;else if(b&&sb===sr)v=vl;else{v=vl;bad.push({k,l:vl,r:vr})}
+  if(v!==undefined)out[k]=v}
+ return{out,bad}}
+function mergeIdArr(b,l,r,ctx){const mb=mapOf(b),mr=mapOf(r),ml=mapOf(l),res=[],seen=new Set(),hasBase=!!b&&b.length>=0&&ctx.hasBase;
+ for(const it of l){seen.add(it.id);const rr=mr.get(it.id),bb=mb.get(it.id);
+  if(rr){if(sj(it)===sj(rr)){res.push(it);continue}
+   if(bb&&sj(bb)===sj(it)){res.push(rr);continue}if(bb&&sj(bb)===sj(rr)){res.push(it);continue}
+   const{out,bad}=mergeItem(bb,it,rr,ctx);res.push(out);
+   if(bad.length){const c=mkConflict(ctx,'both',out,rr,ch=>{if(ch==='remote')bad.forEach(f=>{if(f.r===undefined)delete out[f.k];else out[f.k]=f.r})});c.fields=bad.map(f=>f.k);ctx.conflicts.push(c)}
+   continue}
+  if(bb){if(sj(bb)===sj(it))continue; // zdalnie usunięto, lokalnie bez zmian
+   const c=mkConflict(ctx,'del-remote',it,null,ch=>{if(ch==='remote'){const i=res.indexOf(it);if(i>=0)res.splice(i,1)}});res.push(it);ctx.conflicts.push(c);continue}
+  res.push(it)}
+ for(const it of r){if(seen.has(it.id))continue;const bb=mb.get(it.id);
+  if(bb){if(sj(bb)===sj(it))continue; // lokalnie usunięto, zdalnie bez zmian
+   const c=mkConflict(ctx,'del-local',null,it,ch=>{if(ch==='remote')res.push(it)});ctx.conflicts.push(c);continue}
+  res.push(it)}
+ return res}
+function unionBy(l,r,keyf,sortf,cap){const m=new Map();[...(r||[]),...(l||[])].forEach(x=>m.set(keyf(x),x));let a=[...m.values()];if(sortf)a.sort(sortf);return cap?a.slice(0,cap):a}
+function mv(b,l,r,ctx,key){const sl=sj(l),sr=sj(r);if(sl===sr)return l;
+ if(key==='log'&&Array.isArray(l)&&Array.isArray(r))return unionBy(l,r,x=>x.t+'|'+x.m,(x,y)=>String(y.t).localeCompare(String(x.t)),200);
+ if(key==='trash'&&Array.isArray(l)&&Array.isArray(r))return unionBy(l,r,x=>x.k+':'+x.id,(x,y)=>y.t-x.t,150);
+ const sb=sj(b);if(ctx.hasBase){if(sb===sl)return r;if(sb===sr)return l}
+ else{if(l===undefined)return r;if(r===undefined)return l}
+ if(isObj(l)&&isObj(r)){const keys=new Set([...Object.keys(isObj(b)?b:{}),...Object.keys(l),...Object.keys(r)]),out={};
+  for(const k of keys){ctx.path.push(k);const v=mv(isObj(b)?b[k]:undefined,l[k],r[k],ctx,k);ctx.path.pop();if(v!==undefined)out[k]=v}return out}
+ if(isIdArr(ctx.hasBase?b:undefined,l,r))return mergeIdArr(ctx.hasBase?(b||[]):[],l,r,ctx);
+ return l}
+/* base===null: brak wersji bazowej (pierwsza synchronizacja po aktualizacji): suma wpisów, bez propagacji usunięć */
+function run(base,local,remote){const ctx={conflicts:[],path:[],hasBase:!!base};const merged=mv(base||undefined,local,remote,ctx,'');return{merged,conflicts:ctx.conflicts}}
+return{run,sj}})();
 /* ===== Tylko jako zainstalowana aplikacja: w zwykłej karcie przeglądarki pokazujemy instrukcję instalacji ===== */
 (()=>{
 const web=/^https?:/.test(location.protocol);if(!web)return;
