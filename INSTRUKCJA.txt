@@ -97,3 +97,11 @@ Moda → Stylizacje → przełącznik „Na sylwetce”. Zdjęcia ubrań układa
 czapka u góry, na tułowiu warstwy (kurtka za koszulką), niżej spodnie i buty, akcesoria z boku.
 Dotknij ubrania, by zobaczyć szczegóły. Dodano kategorię „Czapki i nakrycia głowy”.
 Ubrania bez zdjęcia pokazują się jako kolorowe kafelki.
+
+CZĘŚĆ 15 – MODA: WARSTWY, PODGLĄD, ZDJĘCIA (wersja 5.0)
+• Stylizacje → „Na sylwetce” → „Warstwy”: ustawiasz strzałkami, co leży na wierzchu (np. kurtka na koszulce).
+• Nowa stylizacja pokazuje podgląd na sylwetce na żywo, gdy zaznaczasz elementy (pod listą).
+• Przycisk „Zdjęcie” przy stylizacji i w oknie dnia dodaje Twoje zdjęcie (np. w lustrze) z datą i notatką.
+• Zakładka „Dziennik” zbiera zdjęcia i przypomina „Tego dnia kiedyś”. Dotknij zdjęcia, by zobaczyć
+  szczegóły i założyć ten strój ponownie.
+• Noszenie i plan → „Pokaż sylwetki”: cały tydzień z sylwetkami.
