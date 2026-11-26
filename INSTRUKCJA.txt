@@ -75,3 +75,9 @@ Dostajesz poranne podsumowanie (zadania na dziś i zaległe, płatności, wydarz
 oraz przypomnienie 15 minut przed wydarzeniem. Każde jest pokazywane raz.
 Powiadomienia działają, gdy aplikacja jest otwarta lub działa w tle. Zamknięta całkiem
 nie wyśle ich (bezpłatny hosting nie ma serwera push); po otwarciu pokaże zaległe podsumowanie.
+
+CZĘŚĆ 11 – WYGLĄD (wersja 4.6)
+Emoji w menu, przyciskach i nagłówkach zastąpiły spójne ikony liniowe w stylu Apple.
+Puste panele pokazują delikatną ilustrację zamiast samego tekstu. Widoki na telefonie
+mają poprawione pola szybkiego dodawania i miejsce pod przyciskiem „+”.
+Emoji wpisane przez Ciebie (notatki, nazwy, nastroje) zostają bez zmian.
