@@ -113,3 +113,13 @@ CZĘŚĆ 16 – NOWE FUNKCJE (wersja 5.1)
   „Czas wyjść” przychodzi z wyprzedzeniem dojazdu.
 • Analityka → „Cele roczne”: oszczędności, przychody, limit wydatków, liczba zadań lub własny cel.
   Postęp liczy się sam z Finansów i Zadań. Pasek postępu jest też widżetem na Dashboardzie.
+
+CZĘŚĆ 17 – NOWE FUNKCJE (wersja 5.2)
+• Studia → Oceny → „Kalkulator”: wybierasz przedmiot, wagę nadchodzącej oceny i cel (3,0–5,0),
+  a aplikacja liczy, jaką ocenę musisz dostać. Skala 2–5, średnia ważona.
+• Zadania → „Szablony”: gotowe listy (przed podróżą, przeprowadzka, sprzątanie, początek miesiąca)
+  oraz własne. Wybierasz pozycje i opcjonalny termin, a zadania tworzą się naraz.
+• Zadania → „Teraz/Później”: trzy listy (Teraz, Później, Kiedyś). Przenosisz zadanie przyciskiem pod nim.
+• Mój dzień → „Plan godzinowy”: oś godzin 6:00–23:00 z wydarzeniami z kalendarza po lewej.
+  Bloki czasu przeciągasz palcem (zmiana godziny), dolny pasek zmienia czas trwania, dotknięcie edytuje.
+  Zadania z listy „Do zaplanowania” dodajesz jednym dotknięciem.
