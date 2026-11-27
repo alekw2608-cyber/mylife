@@ -129,3 +129,12 @@ Moda → Szafa lub Stylizacje → „Ustaw miasto”. Aplikacja pobiera dzisiejs
 bez konta) i pokazuje temperaturę, opady oraz pasujące sezony. Zaznacz „Pasuje do pogody dziś”,
 a lista ubrań i stylizacji zawęzi się do tych z odpowiednim sezonem (ubrania bez przypisanego sezonu
 zostają widoczne). Wysyłana jest tylko nazwa miasta. Wymaga internetu; ostatnia prognoza jest zapamiętana.
+
+CZĘŚĆ 19 – ANIMACJE (wersja 5.4)
+• Ekran startowy: prawdziwe logo aplikacji wjeżdża ze sprężystym ruchem, wokół niego pulsuje poświata,
+  pod spodem pojawia się nazwa i pasek ładowania. Znika płynnie po około 1,5 s.
+• Przejścia między modułami: karty wchodzą jedna po drugiej, paski postępu rosną od zera,
+  a liczby w kafelkach narastają.
+• Dotyk: przyciski delikatnie się wciskają, zaznaczenie pola „pyka”, ikona na dolnym pasku odbija się,
+  okna na telefonie wysuwają się od dołu, a powiadomienia wjeżdżają ze sprężyną.
+• Gdy w systemie włączone jest „ograniczenie ruchu”, animacje są wyłączone.
