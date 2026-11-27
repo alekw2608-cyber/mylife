@@ -123,3 +123,9 @@ CZĘŚĆ 17 – NOWE FUNKCJE (wersja 5.2)
 • Mój dzień → „Plan godzinowy”: oś godzin 6:00–23:00 z wydarzeniami z kalendarza po lewej.
   Bloki czasu przeciągasz palcem (zmiana godziny), dolny pasek zmienia czas trwania, dotknięcie edytuje.
   Zadania z listy „Do zaplanowania” dodajesz jednym dotknięciem.
+
+CZĘŚĆ 18 – POGODA W MODZIE (wersja 5.3)
+Moda → Szafa lub Stylizacje → „Ustaw miasto”. Aplikacja pobiera dzisiejszą prognozę (Open-Meteo, bezpłatna,
+bez konta) i pokazuje temperaturę, opady oraz pasujące sezony. Zaznacz „Pasuje do pogody dziś”,
+a lista ubrań i stylizacji zawęzi się do tych z odpowiednim sezonem (ubrania bez przypisanego sezonu
+zostają widoczne). Wysyłana jest tylko nazwa miasta. Wymaga internetu; ostatnia prognoza jest zapamiętana.

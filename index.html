@@ -2727,13 +2727,35 @@ function detail(i){const w=wearsOf(i.id).sort((a,b)=>b.date.localeCompare(a.date
   w.length?h('div',{style:{marginTop:'12px'}},h('b',{class:'small'},'Historia noszenia'),w.slice(0,8).map(z=>h('div',{class:'li small'},dLabel(z.date),z.outfitId?h('span',{class:'muted'},' · stylizacja: '+((Fa().outfits.find(o=>o.id===z.outfitId)||{}).name||'(usunięta)')):null))):null);
  const close=modal({title:i.name,body,wide:true,actions:[btn('Zamknij',()=>close())]})}
 /* ---- garderoba ---- */
+/* ---- pogoda dziś (Open-Meteo, bez klucza): filtr „pasuje do pogody” ---- */
+const WXK='zycie.wx',WXC='zycie.wx.c';
+const wxCfg=()=>{try{return JSON.parse(localStorage.getItem(WXK)||'null')}catch(e){return null}};
+const wxCache=()=>{try{return JSON.parse(localStorage.getItem(WXC)||'null')}catch(e){return null}};
+const WXN=c=>c===0?'bezchmurnie':c<=3?'zmienne zachmurzenie':c<=48?'mgła':c<=67?'deszcz':c<=77?'śnieg':c<=82?'przelotny deszcz':c<=86?'przelotny śnieg':'burza';
+const wxSeasons=t=>t<=4?['zima']:t<=11?['jesien','wiosna','zima']:t<=18?['wiosna','jesien']:t<=23?['wiosna','lato','jesien']:['lato'];
+const wxAvg=w=>(w.tmax+w.tmin)/2;
+const fitsWx=(i,w)=>{if(!w)return true;const s=i.season||[];if(!s.length)return true;const ok=wxSeasons(wxAvg(w));if(!s.some(x=>ok.includes(x)))return false;return true};
+async function wxLoad(force){const c=wxCfg();if(!c)return null;const k=wxCache();const d=todayStr();if(!force&&k&&k.date===d&&Date.now()-k.t<3*3600e3&&k.name===c.name)return k.w;
+ try{const r=await fetch('https://api.open-meteo.com/v1/forecast?latitude='+c.lat+'&longitude='+c.lon+'&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weathercode&timezone=auto&forecast_days=1');const j=await r.json();const w={tmax:Math.round(j.daily.temperature_2m_max[0]),tmin:Math.round(j.daily.temperature_2m_min[0]),rain:j.daily.precipitation_probability_max[0]||0,code:j.daily.weathercode[0]};
+  localStorage.setItem(WXC,JSON.stringify({t:Date.now(),date:d,name:c.name,w}));return w}catch(e){return k&&k.name===c.name?k.w:null}}
+function wxPlace(){formModal({title:'Miasto do pogody',hint:'Używane tylko do pobrania dzisiejszej prognozy (Open-Meteo). Nic poza nazwą miasta nie jest wysyłane.',values:{q:(wxCfg()||{}).name||''},fields:[{k:'q',label:'Miasto',req:true,placeholder:'np. Warszawa'}],
+  onSubmit:async o=>{try{const r=await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=pl&name='+encodeURIComponent(o.q.trim()));const j=await r.json();const p=j.results&&j.results[0];if(!p){toast('Nie znaleziono miasta');return false}localStorage.setItem(WXK,JSON.stringify({name:p.name,lat:p.latitude,lon:p.longitude}));localStorage.removeItem(WXC);await wxLoad(true);ui.wx=true;App.render()}catch(e){toast('Brak połączenia z internetem');return false}}})}
+function wxCard(){const c=wxCfg(),k=wxCache(),w=c&&k&&k.name===c.name&&k.date===todayStr()?k.w:null;
+ if(c&&!w)wxLoad().then(x=>{if(x)App.render()});
+ const adv=w?(w.rain>=50?'Możliwy deszcz, przyda się okrycie. ':'')+(w.tmin<=5?'Zimno rano, ubierz się warstwowo. ':w.tmax>=25?'Gorąco, lekkie rzeczy. ':''):'';
+ return h('div',{class:'card',style:{marginBottom:'12px'}},h('div',{class:'row wrap',style:{gap:'8px',alignItems:'center'}},
+  c?(w?h('div',{class:'sp'},h('b',null,c.name+': '+w.tmin+'° – '+w.tmax+'°'),h('span',{class:'muted small'},' · '+WXN(w.code)+(w.rain?', deszcz '+w.rain+'%':'')),h('div',{class:'tiny muted'},adv+'Pasują sezony: '+wxSeasons(wxAvg(w)).map(s=>(SEAS.find(z=>z[0]===s)||[0,s])[1]).join(', ')+'.')):h('div',{class:'sp small muted'},'Pobieram pogodę dla: '+c.name+'…')):h('div',{class:'sp small muted'},'Ustaw miasto, a pokażę ubrania i stylizacje pasujące do dzisiejszej pogody.'),
+  c&&w?h('label',{class:'chk small'},h('input',{type:'checkbox',checked:!!ui.wx,onchange:e=>{ui.wx=e.target.checked;App.render()}}),'Pasuje do pogody dziś'):null,
+  btn(c?'Zmień miasto':'Ustaw miasto',()=>wxPlace(),'sm ghost','mappin')))}
+const wxNow=()=>{if(!ui.wx)return null;const c=wxCfg(),k=wxCache();return c&&k&&k.name===c.name&&k.date===todayStr()?k.w:null};
 function vCloset(el){const I=Fa().items;
  const sizeQ=I.filter(i=>i.status!=='donate');const val=sum(I,i=>i.price||0);
  el.append(h('div',{class:'grid',style:{marginBottom:'14px'}},h('div',{class:'card kpi'},h('div',{class:'l'},'Ubrania'),h('div',{class:'v'},String(I.length)),h('div',{class:'s'},'wartość '+money(val))),h('div',{class:'card kpi'},h('div',{class:'l'},'Do prania'),h('div',{class:'v'},String(I.filter(i=>i.status==='dirty').length)),h('div',{class:'s'},btn('Wszystko wyprane',()=>{const n=I.filter(i=>i.status==='dirty');if(!n.length){toast('Nic do prania');return}n.forEach(i=>i.status='ok');changed('wyprano '+n.length)},'sm'))),h('div',{class:'card kpi'},h('div',{class:'l'},'Do naprawy / oddania'),h('div',{class:'v'},String(I.filter(i=>i.status==='repair'||i.status==='donate').length)),h('div',{class:'s'},'oznacz w edycji ubrania'))));
- const q=norm(ui.q);let l=I.filter(i=>(!q||norm(i.name+' '+i.brand+' '+i.color+' '+(i.tags||[]).join(' ')).includes(q))&&(!ui.cat||i.cat===ui.cat)&&(!ui.season||(i.season||[]).includes(ui.season))&&(!ui.status||i.status===ui.status)&&(!ui.color||norm(i.color)===norm(ui.color)));
+ const q=norm(ui.q);let l=I.filter(i=>(!q||norm(i.name+' '+i.brand+' '+i.color+' '+(i.tags||[]).join(' ')).includes(q))&&(!ui.cat||i.cat===ui.cat)&&(!ui.season||(i.season||[]).includes(ui.season))&&(!ui.status||i.status===ui.status)&&(!ui.color||norm(i.color)===norm(ui.color))&&fitsWx(i,wxNow()));
  const sorts={name:(a,b)=>a.name.localeCompare(b.name,'pl'),worn:(a,b)=>wearsOf(b.id).length-wearsOf(a.id).length,old:(a,b)=>(lastWorn(a.id)||'0').localeCompare(lastWorn(b.id)||'0'),price:(a,b)=>(b.price||0)-(a.price||0),new:(a,b)=>(b.bought||'').localeCompare(a.bought||'')};l.sort(sorts[ui.sort]);
  const sel=(id,opts,cur,fn,lab)=>{const s=h('select',{'aria-label':lab,onchange:e=>fn(e.target.value),style:{width:'auto'}},opts.map(o=>h('option',{value:o[0]},o[1])));s.value=cur;return s};
  const colors=[...new Set(I.map(i=>norm(i.color)).filter(Boolean))].sort();
+ el.append(wxCard());
  el.append(h('div',{class:'row wrap',style:{marginBottom:'12px'}},h('input',{type:'search',placeholder:'Szukaj ubrania…','aria-label':'Szukaj',value:ui.q,style:{maxWidth:'220px'},oninput:e=>{ui.q=e.target.value;clearTimeout(ui._s);ui._s=setTimeout(()=>{App.render();const n=$('input[type=search]');n&&(n.focus(),n.setSelectionRange(n.value.length,n.value.length))},250)}}),
   sel('fc',[['','Wszystkie kategorie'],...CATS.map(c=>[c[0],catN(c[0])])],ui.cat,v=>{ui.cat=v;App.render()},'Kategoria'),sel('fs',[['','Każdy sezon'],...SEAS],ui.season,v=>{ui.season=v;App.render()},'Sezon'),sel('ft',[['','Każdy stan'],...Object.entries(STAT)],ui.status,v=>{ui.status=v;App.render()},'Stan'),sel('fk',[['','Każdy kolor'],...colors.map(c=>[c,c])],norm(ui.color),v=>{ui.color=v;App.render()},'Kolor'),
   sel('so',[['name','Nazwa'],['worn','Najczęściej noszone'],['old','Najdawniej noszone'],['price','Cena'],['new','Najnowsze']],ui.sort,v=>{ui.sort=v;App.render()},'Sortowanie'),h('div',{class:'sp'}),exportBar('Garderoba',()=>[['Nazwa','Kategoria','Kolor','Marka','Rozmiar','Sezon','Cena','Data zakupu','Stan','Założeń','Ostatnio','Koszt za założenie'],...I.map(i=>[i.name,catN(i.cat),i.color,i.brand,i.size,(i.season||[]).join('/'),i.price,i.bought,STAT[i.status],wearsOf(i.id).length,lastWorn(i.id),cpw(i)!=null?r2(cpw(i)):''])]),btn('Dodaj ubranie',()=>itemForm(),'primary','plus')));
@@ -2765,7 +2787,7 @@ function figure(its,opt){opt=opt||{};const W=opt.w||260,u=W/260,by=c=>its.filter
  by('under').slice(0,2).forEach((i,k)=>box.append(tile(i,4,150+k*60,52,52,7)));
  [...by('acc'),...by('other')].slice(0,5).forEach((i,k)=>box.append(tile(i,204,20+k*58,52,52,8)));
  return box}
-function vOutfits(el){const O=Fa().outfits;
+function vOutfits(el){const O0=Fa().outfits;const wxw=wxNow();const O=wxw?O0.filter(o=>o.ids.map(item).filter(Boolean).every(i=>fitsWx(i,wxw))):O0;el.append(wxCard());
  const seasonNow=['zima','zima','wiosna','wiosna','wiosna','lato','lato','lato','jesien','jesien','jesien','zima'][new Date().getMonth()];
  const prop=h('div',{class:'card',style:{marginBottom:'14px'}},h('h3',null,'Zaproponuj strój'),h('div',{class:'small muted',style:{marginBottom:'8px'}},'Losuje czyste ubrania pasujące do sezonu, z preferencją dla tych noszonych dawno. To proste reguły, nie sztuczna inteligencja.'));
  const out=h('div',{style:{marginTop:'10px'}});let occ='Codzienny',se=seasonNow;
@@ -4108,7 +4130,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='5.2';App.ver=VER;let reg=null,upd=false;
+const VER='5.3';App.ver=VER;let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');
