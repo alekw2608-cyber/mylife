@@ -171,3 +171,8 @@ CZĘŚĆ 24 (wersja 5.9)
 
 CZĘŚĆ 25 (wersja 6.0)
 - Historia wersji → przy każdej migawce przycisk „Wpisy": lista pojedynczych wpisów usuniętych lub zmienionych od tamtej chwili, z przyciskiem „Przywróć" / „Cofnij zmianę". Reszta danych zostaje nietknięta, a stan sprzed przywrócenia zapisuje się jako migawka.
+
+CZĘŚĆ 26 (wersja 6.1)
+- Kopia do pliku co tydzień: gdy ostatnia kopia ma > 7 dni, aplikacja zapyta (raz dziennie) i pobierze plik. Na komputerze (Chrome/Edge) w Ustawieniach → „Kopia zapasowa do pliku" → „Wybierz folder": kopie zapisują się same, zostaje 8 ostatnich. Można wyłączyć.
+- Cofnij: po usunięciu wpisu pojawia się komunikat z przyciskiem „Cofnij"; Ctrl+Z cofa ostatnią zmianę (do 12 ostatnich w tej sesji).
+- Naprawiono: przyciski w komunikatach były nieklikalne.

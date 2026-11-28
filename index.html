@@ -107,6 +107,7 @@ tr:last-child td{border-bottom:0}
 .modal>header{display:flex;align-items:center;padding:18px 22px 6px}.modal>header h2{margin:0;font-size:18px;flex:1;letter-spacing:-.02em}
 .modal>.body{padding:12px 22px}.modal>footer{display:flex;gap:8px;justify-content:flex-end;padding:12px 22px 20px}
 #toasts{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;z-index:200;align-items:center;pointer-events:none}
+#toasts .toast{pointer-events:auto}
 .toast{background:var(--text);color:var(--bg);padding:10px 18px;border-radius:99px;font-size:14px;font-weight:500;box-shadow:0 8px 30px rgba(0,0,0,.3);animation:pop .25s}
 /* start screen */
 #start{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
@@ -501,7 +502,7 @@ function printReport(title,node){const w=window.open('','_blank');if(!w){toast('
  w.document.close();setTimeout(()=>w.print(),300)}
 
 /* ============ UI: toast, modal, formularze ============ */
-function toast(t){const box=$('#toasts');[...box.children].slice(0,-1).forEach(x=>x.remove());const e=h('div',{class:'toast',role:'status',onclick:()=>e.remove()},t);box.append(e);setTimeout(()=>{e.style.transition='opacity .3s';e.style.opacity=0;setTimeout(()=>e.remove(),300)},2600)}
+function toast(t,act){const box=$('#toasts');[...box.children].slice(0,-1).forEach(x=>x.remove());const e=h('div',{class:'toast',role:'status',onclick:()=>e.remove()},t);if(act&&act.label){const b=h('button',{type:'button',class:'toast-act',style:{marginLeft:'12px',background:'none',border:0,color:'inherit',textDecoration:'underline',font:'inherit',fontWeight:700,cursor:'pointer',padding:'0 2px'},onclick:ev=>{ev.stopPropagation();e.remove();try{act.fn()}catch(x){console.error(x)}}},act.label);e.append(b)}box.append(e);const ms=act?6500:2600;setTimeout(()=>{e.style.transition='opacity .3s';e.style.opacity=0;setTimeout(()=>e.remove(),300)},ms)}
 function modal({title,body,actions,wide,onClose}){
   const ovl=h('div',{class:'ovl',onmousedown:e=>{if(e.target===ovl)close()}});
   const foot=actions&&actions.length?h('footer',null,actions):null;
@@ -607,7 +608,7 @@ App.register({id:'settings',title:'Ustawienia',icon:'settings',group:'System',or
     h('div',{class:'row wrap'},btn('Pobierz kopię (JSON)',()=>{App.exportJSON();App.render();toast('Kopia pobrana')},'primary','download'),btn('Wczytaj kopię',()=>App.pickImport(),'','upload'))),
    App.securityCard?App.securityCard():null,
    App.installCard?App.installCard():null,App.modeCard?App.modeCard():null,App.helpCard?App.helpCard():null,App.updateCard?App.updateCard():null,App.odCard?App.odCard():null,App.notifCard?App.notifCard():null,App.histCard?App.histCard():null,
-   App.spaceCard?App.spaceCard():null,App.tourCard?App.tourCard():null,
+   App.backupCard?App.backupCard():null,App.spaceCard?App.spaceCard():null,App.tourCard?App.tourCard():null,
    h('div',{class:'card'},h('h3',null,'Tryb i usuwanie'),
     h('div',{class:'col'},
      btn('Wyloguj / zmień konto',()=>App.logout(),'','repeat'),
@@ -4182,7 +4183,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='6.0';App.ver=VER;let reg=null,upd=false;
+const VER='6.1';App.ver=VER;let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');
@@ -5456,6 +5457,62 @@ App.spaceCard=function(){
 /* ostrzeżenie raz na sesję po zalogowaniu, gdy >80% */
 let warned=false;const r1=App.render;
 App.render=function(){const r=r1.apply(this,arguments);if(this.db&&!warned){warned=true;setTimeout(()=>{try{const i=App.spaceInfo();if(i.pct>=80)toast('Pamięć prawie pełna ('+i.pct+'%) – zobacz Ustawienia → Miejsce')}catch(e){}},2500)}return r};
+})();
+/* ===== 6.1: cotygodniowa kopia do pliku + Cofnij ===== */
+(()=>{
+/* ---------- Kopia automatyczna ---------- */
+const IDB=()=>new Promise((ok,no)=>{const r=indexedDB.open('mylife-bk',1);r.onupgradeneeded=()=>r.result.createObjectStore('k');r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+const idbGet=async k=>{try{const d=await IDB();return await new Promise(ok=>{const q=d.transaction('k').objectStore('k').get(k);q.onsuccess=()=>ok(q.result);q.onerror=()=>ok(null)})}catch(e){return null}};
+const idbSet=async(k,v)=>{try{const d=await IDB();await new Promise(ok=>{const t=d.transaction('k','readwrite');t.objectStore('k').put(v,k);t.oncomplete=ok;t.onerror=ok})}catch(e){}};
+async function content(){const a=App;a.db.settings.lastBackup=new Date().toISOString();a.save(true);if(a.key){await a._p;return{name:`zycie-kopia-zaszyfrowana-${todayStr()}.json`,text:localStorage.getItem('zycie.v1.'+a.mode)}}return{name:`zycie-kopia-${todayStr()}.json`,text:JSON.stringify(a.db,null,1)}}
+async function perm(dir,ask){try{const o={mode:'readwrite'};if(await dir.queryPermission(o)==='granted')return true;if(ask&&await dir.requestPermission(o)==='granted')return true}catch(e){}return false}
+async function toFolder(ask){const dir=await idbGet('dir');if(!dir||!(await perm(dir,ask)))return false;
+ try{const c=await content(),f=await dir.getFileHandle(c.name,{create:true}),w=await f.createWritable();await w.write(c.text);await w.close();
+  const names=[];for await(const [n] of dir.entries())if(/^zycie-kopia(-zaszyfrowana)?-\d{4}-\d{2}-\d{2}\.json$/.test(n))names.push(n);names.sort().reverse();
+  for(const n of names.slice(8)){try{await dir.removeEntry(n)}catch(e){}}return dir.name||true}catch(e){console.error(e);return false}}
+App.backupNow=async()=>{const r=await toFolder(true);if(r){toast('Kopia zapisana w folderze „'+r+'"');App.render();return}await App.exportJSON();App.render();toast('Kopia pobrana')};
+let chk=false;
+async function check(){const s=App.db&&App.db.settings;if(!s||App.mode==='demo'||s.autoBackup==='off')return;
+ const last=s.lastBackup?new Date(s.lastBackup).getTime():0;if(Date.now()-last<7*864e5)return;if(!last&&App.db.created&&Date.now()-new Date(App.db.created)<3*864e5)return;
+ if(await toFolder(false)){toast('Cotygodniowa kopia zapisana w folderze');App.render();return}
+ const k='zycie.bk.ask',td=todayStr();try{if(localStorage.getItem(k)===td)return;localStorage.setItem(k,td)}catch(e){}
+ const dn=last?Math.floor((Date.now()-last)/864e5):null;
+ confirmBox(dn===null?'Nie masz jeszcze kopii zapasowej tego konta. Pobrać ją teraz?':'Ostatnia kopia ma '+dn+' dni. Pobrać nową?',()=>{App.exportJSON().then(()=>{App.render();toast('Kopia pobrana')})},{yes:'Pobierz kopię',danger:false})}
+const r0=App.render;
+App.render=function(){const r=r0.apply(this,arguments);if(this.db&&!chk){chk=true;setTimeout(()=>{check().catch(console.error)},5000)}return r};
+App.backupCard=function(){const s=App.db.settings;let nm='';
+ const card=h('div',{class:'card'},h('h3',null,'Kopia zapasowa do pliku'),
+  h('div',{class:'small muted',style:{marginTop:0,marginBottom:'8px'}},'Raz w tygodniu aplikacja zapisze (lub przypomni o) kopii konta w pliku. Na komputerze z Chrome/Edge możesz wskazać folder, a wtedy zapis dzieje się sam, bez pytania.'),
+  h('div',{class:'field'},seg([['weekly','Co tydzień'],['off','Wyłączona']],s.autoBackup==='off'?'off':'weekly',v=>{s.autoBackup=v;App.save();App.render()})),
+  h('div',{class:'small',id:'bkdir',style:{marginBottom:'8px'}}),
+  h('div',{class:'row wrap'},btn('Zrób kopię teraz',()=>App.backupNow(),'primary','download'),
+   window.showDirectoryPicker?btn('Wybierz folder',async()=>{try{const d=await window.showDirectoryPicker({mode:'readwrite',id:'mylife'});await idbSet('dir',d);toast('Folder ustawiony: '+d.name);App.render()}catch(e){}},'','folder'):null));
+ idbGet('dir').then(d=>{const el=card.querySelector('#bkdir');if(el)el.textContent=d?'Folder kopii: '+d.name:(window.showDirectoryPicker?'Folder nie wybrany – kopia będzie pobierana jako plik.':'Ta przeglądarka pobiera kopię jako plik.')});
+ return card};
+
+/* ---------- Cofnij ---------- */
+const stack=[];let cur=null,curN=0,tm=null,total=0;const CAP=14e6;
+const count=db=>{let n=0;for(const k in db){if(k==='settings'||k==='trash'||k==='log')continue;const v=db[k];if(Array.isArray(v))n+=v.length;else if(v&&typeof v==='object')for(const p in v)if(Array.isArray(v[p]))n+=v[p].length}return n};
+function tick(){const db=App.db;if(!db||App.mode==='demo'){cur=null;stack.length=0;total=0;return}
+ let s;try{s=JSON.stringify(db)}catch(e){return}
+ if(cur===null||cur.m!==App.mode){cur={s,m:App.mode};curN=count(db);stack.length=0;total=0;return}
+ if(s===cur.s)return;
+ const n=count(db),prevS=cur.s,prevN=curN;cur={s,m:App.mode};curN=n;
+ if(stack.length&&stack[stack.length-1].t>Date.now()-1500){/* kolejne zapisy w ciągu 1,5 s traktuj jako jedną zmianę */}else{stack.push({s:prevS,t:Date.now()});total+=prevS.length}
+ while(stack.length>12||total>CAP){total-=stack.shift().s.length}
+ if(n<prevN&&prevN-n<=5)toast(prevN-n===1?'Usunięto wpis':'Usunięto '+(prevN-n)+' wpisy',{label:'Cofnij',fn:undo})}
+App.canUndo=()=>stack.length>0;
+function undo(){if(!stack.length){toast('Nie ma nic do cofnięcia');return}
+ const x=stack.pop();total-=x.s.length;
+ let db;try{db=JSON.parse(x.s)}catch(e){toast('Nie można cofnąć');return}
+ App.load(App.mode,db);cur={s:x.s,m:App.mode};curN=count(db);App.save();App.render();toast('Cofnięto ostatnią zmianę')}
+App.undo=undo;
+const s0=App.save;
+App.save=function(){const r=s0.apply(this,arguments);clearTimeout(tm);tm=setTimeout(tick,800);return r};
+document.addEventListener('keydown',e=>{if(!(e.ctrlKey||e.metaKey)||e.shiftKey||e.altKey||e.key.toLowerCase()!=='z')return;
+ const t=e.target;if(t&&(/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)||t.isContentEditable))return;if(!App.db||document.querySelector('.modal'))return;e.preventDefault();undo()});
+App.undoCard=()=>h('div',{style:{marginTop:'8px'}},btn('Cofnij ostatnią zmianę',undo,'sm','repeat'));
+setTimeout(tick,1500);
 })();
 /* ===== Tylko jako zainstalowana aplikacja: w zwykłej karcie przeglądarki pokazujemy instrukcję instalacji ===== */
 (()=>{
