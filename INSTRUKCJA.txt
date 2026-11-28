@@ -138,3 +138,7 @@ CZĘŚĆ 19 – ANIMACJE (wersja 5.4)
 • Dotyk: przyciski delikatnie się wciskają, zaznaczenie pola „pyka”, ikona na dolnym pasku odbija się,
   okna na telefonie wysuwają się od dołu, a powiadomienia wjeżdżają ze sprężyną.
 • Gdy w systemie włączone jest „ograniczenie ruchu”, animacje są wyłączone.
+
+CZĘŚĆ 20 – SZYBKOŚĆ (wersja 5.5)
+Listy zadań pokazują po 60 pozycji z przyciskiem „Pokaż więcej”, a Oś czasu liczy dane jednorazowo.
+Przy 2000 zadaniach widok Zadań otwiera się ponad 4 razy szybciej, a Oś czasu prawie 2 razy.

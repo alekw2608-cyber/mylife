@@ -1117,7 +1117,9 @@ function row(t){
 function planEvent(t){if(typeof Cal==='undefined'){toast('Kalendarz niedostępny');return}Cal.newEvent({title:t.title,date:t.due||todayStr(),st:t.time||'',taskId:t.id,desc:t.desc||''})}
 function filtered(){const f=ui.f;return T().items.filter(t=>(!f.cat||t.cat===f.cat)&&(f.show==='all'||(f.show==='open'?t.status!=='done':t.status==='done'))&&(!f.q||(t.title+' '+t.desc+' '+(t.project||'')).toLowerCase().includes(f.q.toLowerCase())))}
 const byDue=(a,b)=>(a.due||'9').localeCompare(b.due||'9')||a.prio-b.prio;
-function section(title,list,cls){if(!list.length)return null;return h('div',{class:'card',style:{marginTop:'14px'}},h('h3',{class:cls||''},title,h('span',{class:'chip'},list.length)),list.map(row))}
+const LIM=60,lim={};
+function capped(key,list,mk){const n=lim[key]||LIM,box=h('div');list.slice(0,n).forEach(x=>box.append(mk(x)));if(list.length>n)box.append(h('div',{style:{textAlign:'center',marginTop:'8px'}},btn('Pokaż więcej ('+(list.length-n)+')',()=>{lim[key]=n+100;App.render()},'sm')));return box}
+function section(title,list,cls){if(!list.length)return null;return h('div',{class:'card',style:{marginTop:'14px'}},h('h3',{class:cls||''},title,h('span',{class:'chip'},list.length)),capped(title,list,row))}
 function vList(el){
  const l=filtered().sort(byDue),t0=todayStr();
  if(!l.length){el.append(h('div',{class:'card',style:{marginTop:'14px'}},empty(ui.f.q||ui.f.cat?'Brak pasujących zadań':'Brak zadań','Dodaj pierwsze zadanie w polu powyżej.')));return}
@@ -1130,7 +1132,7 @@ const whenOf=t=>t.when||((t.due&&t.due<=addDays(todayStr(),2))?'now':t.due?'late
 function vHorizon(el){const l=filtered().filter(t=>t.status!=='done').sort(byDue);
  if(!l.length){el.append(h('div',{class:'card',style:{marginTop:'14px'}},empty('Brak otwartych zadań','Dodaj zadanie w polu powyżej.')));return}
  HZ.forEach(([k,n,s])=>{const g=l.filter(t=>whenOf(t)===k);el.append(h('div',{class:'card',style:{marginTop:'14px'}},h('h3',null,n,h('span',{class:'chip'},g.length)),h('div',{class:'tiny muted',style:{marginTop:'-6px',marginBottom:'6px'}},s),
-  g.length?g.map(t=>h('div',null,row(t),h('div',{class:'row',style:{gap:'6px',margin:'-2px 0 8px 34px'}},HZ.filter(z=>z[0]!==k).map(z=>h('button',{type:'button',class:'chip pill',style:{fontSize:'12px',padding:'4px 10px'},onclick:()=>{t.when=z[0];changed('przeniesiono do: '+z[1])}},'→ '+z[1]))))):h('div',{class:'small muted'},'Pusto.')))})}
+  g.length?capped('hz'+k,g,t=>h('div',null,row(t),h('div',{class:'row',style:{gap:'6px',margin:'-2px 0 8px 34px'}},HZ.filter(z=>z[0]!==k).map(z=>h('button',{type:'button',class:'chip pill',style:{fontSize:'12px',padding:'4px 10px'},onclick:()=>{t.when=z[0];changed('przeniesiono do: '+z[1])}},'→ '+z[1]))))):h('div',{class:'small muted'},'Pusto.')))})}
 const BUILT=[{id:'b1',name:'Przed podróżą',items:['Sprawdzić dokumenty i ważność paszportu','Zrobić listę pakowania','Zamówić transport na lotnisko','Wymienić walutę','Naładować powerbank i telefon','Wyłączyć urządzenia i zakręcić wodę','Powiadomić bank o wyjeździe']},
  {id:'b2',name:'Przeprowadzka – ostatni tydzień',items:['Spakować rzeczy codzienne do osobnego pudła','Zgłosić zmianę adresu','Zamknąć lub przepisać umowy (prąd, internet)','Odczytać liczniki','Oddać klucze','Posprzątać mieszkanie']},
  {id:'b3',name:'Sprzątanie tygodniowe',items:['Odkurzyć','Umyć łazienkę','Wymienić pościel','Wynieść śmieci','Umyć podłogi']},
@@ -4163,7 +4165,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='5.4';App.ver=VER;let reg=null,upd=false;
+const VER='5.5';App.ver=VER;let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');
@@ -4400,16 +4402,19 @@ ICONS.clock='<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>';
 const ui={tab:'line',dir:'past',days:14,off:0};
 const wkS=d=>addDays(d,-dow(d));
 const B=()=>App.db.budget;
+let IX=null;
+function ix(){const g=(m,k,v)=>(m[k]=m[k]||[]).push(v);const I={e:{},t:{},n:{},s:{}};
+ (B().entries||[]).forEach(e=>g(I.e,e.date,e));((App.db.tasks||{}).items||[]).forEach(t=>{if(t.doneAt)g(I.t,t.doneAt,t)});((App.db.notepad||{}).notes||[]).forEach(n=>g(I.n,n.created,n));((App.db.fitness||{}).sessions||[]).forEach(x=>g(I.s,x.date,x));return I}
 function dayItems(d){
  const out=[];
  try{Cal.items(d,d,{all:true}).forEach(x=>out.push({t:x.st||'',kind:x.kind==='ev'?'Wydarzenie':(x.src&&x.src.name)||'Plan',title:x.title,done:!!x.done,c:x.color}))}catch(e){}
- (B().entries||[]).filter(e=>e.date===d).forEach(e=>out.push({t:'',kind:e.type==='income'?'Przychód':'Wydatek',title:e.title+' · '+(e.type==='income'?'+':'−')+money(e.amount,e.cur),c:e.type==='income'?'#30d158':'#ff9f0a'}));
- ((App.db.tasks||{}).items||[]).filter(t=>t.doneAt===d).forEach(t=>out.push({t:'',kind:'Zadanie wykonane',title:t.title,done:true,c:'#ff9f0a'}));
- ((App.db.notepad||{}).notes||[]).filter(n=>n.created===d).forEach(n=>out.push({t:'',kind:'Notatka',title:n.title||'Bez tytułu',c:'#bf5af2'}));
- ((App.db.fitness||{}).sessions||[]).filter(s=>s.date===d).forEach(s=>out.push({t:'',kind:'Trening',title:s.name,done:true,c:'#34c759'}));
+ ((IX||(IX=ix())).e[d]||[]).forEach(e=>out.push({t:'',kind:e.type==='income'?'Przychód':'Wydatek',title:e.title+' · '+(e.type==='income'?'+':'−')+money(e.amount,e.cur),c:e.type==='income'?'#30d158':'#ff9f0a'}));
+ (IX.t[d]||[]).forEach(t=>out.push({t:'',kind:'Zadanie wykonane',title:t.title,done:true,c:'#ff9f0a'}));
+ (IX.n[d]||[]).forEach(n=>out.push({t:'',kind:'Notatka',title:n.title||'Bez tytułu',c:'#bf5af2'}));
+ (IX.s[d]||[]).forEach(s=>out.push({t:'',kind:'Trening',title:s.name,done:true,c:'#34c759'}));
  return out.sort((a,b)=>(a.t||'99').localeCompare(b.t||'99'))}
 function vLine(el){
- const t0=todayStr();
+ IX=null;const t0=todayStr();
  el.append(h('div',{class:'row wrap',style:{gap:'8px',marginBottom:'12px'}},
   seg([['past','Co się działo'],['future','Co mnie czeka']],ui.dir,v=>{ui.dir=v;ui.days=14;App.render()})));
  let shown=0;
