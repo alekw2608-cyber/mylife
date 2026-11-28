@@ -162,3 +162,9 @@ Kolor akcentu (7 kolorów) był już wcześniej. Ustawienia synchronizują się 
 CZĘŚĆ 23 (wersja 5.8)
 - Krótki samouczek przy pierwszym uruchomieniu (4 ekrany): szybkie dodawanie, synchronizacja, powiadomienia, wybór modułów (Prosty / Pełny / Własny).
 - Pełny przewodnik po modułach: Ustawienia → Samouczek → „Pełny przewodnik po modułach".
+
+CZĘŚĆ 24 (wersja 5.9)
+- Skróty na ikonie (Android, długie przytrzymanie): Dodaj wydatek, Dodaj zadanie, Dodaj wydarzenie, Dodaj notatkę. Po aktualizacji może być potrzebna reinstalacja aplikacji, by Android odczytał nowe skróty.
+- Udostępnianie: w innej aplikacji wybierz Udostępnij → MyLife; link/tekst trafia do Notatnika (tag „udostępnione"). Działa po zainstalowaniu aplikacji (Android/Chrome).
+- Błędy: zamiast pustego ekranu pojawia się komunikat z przyciskami Odśwież / Wyślij raport (kopiuje opis błędu bez Twoich danych).
+- Ustawienia → Miejsce w pamięci: ile zajmują zdjęcia i które moduły; ostrzeżenie powyżej 70–80%.

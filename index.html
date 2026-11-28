@@ -607,7 +607,7 @@ App.register({id:'settings',title:'Ustawienia',icon:'settings',group:'System',or
     h('div',{class:'row wrap'},btn('Pobierz kopię (JSON)',()=>{App.exportJSON();App.render();toast('Kopia pobrana')},'primary','download'),btn('Wczytaj kopię',()=>App.pickImport(),'','upload'))),
    App.securityCard?App.securityCard():null,
    App.installCard?App.installCard():null,App.modeCard?App.modeCard():null,App.helpCard?App.helpCard():null,App.updateCard?App.updateCard():null,App.odCard?App.odCard():null,App.notifCard?App.notifCard():null,App.histCard?App.histCard():null,
-   App.tourCard?App.tourCard():null,
+   App.spaceCard?App.spaceCard():null,App.tourCard?App.tourCard():null,
    h('div',{class:'card'},h('h3',null,'Tryb i usuwanie'),
     h('div',{class:'col'},
      btn('Wyloguj / zmień konto',()=>App.logout(),'','repeat'),
@@ -4182,7 +4182,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='5.8';App.ver=VER;let reg=null,upd=false;
+const VER='5.9';App.ver=VER;let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');
@@ -5382,6 +5382,65 @@ window.emptyArt=t=>{const k=(ART.find(a=>a[0].test(t||''))||[0,'sparkle'])[1];
  window.addEventListener('hashchange',()=>setTimeout(run,20));if(window.__splash)window.__splash();setTimeout(run,60)})();
 
 setInterval(()=>{try{if(App.db&&App.db.settings.theme==='time')App.applyTheme()}catch(e){}},300000);
+/* ===== 5.9: Udostępnij → Notatnik, czytelne błędy z raportem, miejsce na zdjęcia ===== */
+(()=>{
+/* --- Udostępnianie z innych aplikacji (Web Share Target, GET) --- */
+try{const q=new URLSearchParams(location.search);
+ if(q.has('text')||q.has('url')||(q.has('title')&&!q.has('web'))){
+  sessionStorage.setItem('zycie.share',JSON.stringify({title:(q.get('title')||'').slice(0,200),text:(q.get('text')||'').slice(0,20000),url:(q.get('url')||'').slice(0,2000)}));
+  ['title','text','url'].forEach(k=>q.delete(k));const s=q.toString();
+  history.replaceState(null,'',location.pathname+(s?'?'+s:'')+location.hash)}}catch(e){}
+const r0=App.render;
+App.render=function(){
+ if(this.db){let sh=null;try{sh=sessionStorage.getItem('zycie.share');if(sh)sessionStorage.removeItem('zycie.share')}catch(e){}
+  if(sh){try{const o=JSON.parse(sh);let body=[o.text,o.url].filter(Boolean).join('\n');if(o.text&&o.url&&o.text.includes(o.url))body=o.text;
+   const title=o.title||(o.url?o.url.replace(/^https?:\/\//,'').slice(0,60):(o.text||'Udostępnione').split('\n')[0].slice(0,60));
+   Notepad.create({title,body,tags:['udostępnione']});this.save&&this.save();
+   setTimeout(()=>{try{App.go('notepad');toast('Dodano do Notatnika')}catch(e){}},300)}catch(e){console.error(e)}}}
+ return r0.apply(this,arguments)};
+
+/* --- Czytelne błędy zamiast pustego ekranu --- */
+let shown=0,last='';
+const clean=s=>String(s||'').replace(/https?:\/\/[^\s)]+/g,'<url>').replace(/[A-Za-z0-9+\/=]{40,}/g,'<dane>').slice(0,400);
+function report(msg,stack){
+ const lines=['MyLife App '+(App.ver||''),'Czas: '+new Date().toISOString(),'Przeglądarka: '+navigator.userAgent.slice(0,120),'Ekran: '+(location.hash||'').replace(/[?].*/,'').slice(0,40),'Błąd: '+clean(msg),'Ślad: '+clean(stack).split('\n').slice(0,4).join(' | ')];
+ return lines.join('\n')}
+function show(msg,stack){
+ if(msg===last||shown>2)return;last=msg;shown++;
+ try{const old=document.getElementById('errbar');if(old)old.remove();
+  const rep=report(msg,stack),box=document.createElement('div');box.id='errbar';box.setAttribute('role','alert');
+  box.style.cssText='position:fixed;left:12px;right:12px;bottom:12px;z-index:99999;background:var(--card,#fff);color:var(--text,#111);border:1px solid var(--line,#ccc);border-radius:16px;padding:14px;box-shadow:0 10px 40px rgba(0,0,0,.25);max-width:520px;margin:auto;font:14px system-ui';
+  box.innerHTML='<b>Coś poszło nie tak</b><div style="margin:6px 0 10px;opacity:.75;font-size:13px">Twoje dane są bezpieczne w pamięci urządzenia. Możesz odświeżyć aplikację, a jeśli błąd wraca – skopiować opis (bez Twoich danych) i go wysłać.</div><div style="display:flex;gap:8px;flex-wrap:wrap"></div>';
+  const row=box.lastChild,mk=(t,f,p)=>{const b=document.createElement('button');b.className='btn'+(p?' primary':'');b.textContent=t;b.onclick=f;row.append(b)};
+  mk('Odśwież',()=>location.reload(),1);
+  mk('Wyślij raport',()=>{const done=()=>{toast&&toast('Skopiowano opis błędu')};try{navigator.clipboard.writeText(rep).then(done,()=>prompt('Skopiuj opis błędu:',rep))}catch(e){prompt('Skopiuj opis błędu:',rep)}});
+  mk('Zamknij',()=>box.remove());document.body.append(box)}catch(e){}}
+const skip=m=>/ResizeObserver|Script error\.?$|Non-Error promise/i.test(m||'');
+window.addEventListener('error',e=>{if(e.target&&e.target!==window)return;if(skip(e.message))return;show(e.message,e.error&&e.error.stack)});
+window.addEventListener('unhandledrejection',e=>{const r=e.reason,m=(r&&r.message)||String(r);if(skip(m))return;show(m,r&&r.stack)});
+window.__errReport=show;
+
+/* --- Miejsce: ile zajmują zdjęcia --- */
+const kb=n=>n>=1048576?(n/1048576).toFixed(1).replace('.',',')+' MB':Math.max(1,Math.round(n/1024))+' KB';
+function scan(){const by={};let total=0;
+ const walk=(o,top)=>{if(!o||typeof o!=='object')return;for(const k in o){const v=o[k];if(typeof v==='string'){if(v.startsWith('data:image')||v.startsWith('data:application')){by[top]=(by[top]||0)+v.length;total+=v.length}}else if(typeof v==='object')walk(v,top)}};
+ const db=App.db||{};for(const m in db)if(m!=='settings')walk(db[m],m);return{by,total}}
+function usage(){let a=0;try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf('zycie.')===0)a+=(k.length+localStorage.getItem(k).length)*2}}catch(e){}return a}
+App.spaceInfo=()=>{const u=usage(),p=scan(),pct=Math.min(100,Math.round(u/10485760*100));return{used:u,photos:p.total*2,by:p.by,pct}};
+App.spaceCard=function(){
+ const i=App.spaceInfo(),names={fashion:'Stylizacje i ubrania',budget:'Paragony i wydatki',health:'Zdrowie',inventory:'Inwentarz',notepad:'Notatnik',travel:'Podróże',home:'Dom',kb:'Baza wiedzy',people:'Ludzie',vault:'Sejf'};
+ const top=Object.entries(i.by).sort((a,b)=>b[1]-a[1]).slice(0,5);
+ const warn=i.pct>=70;
+ const bar=h('div',{style:{height:'8px',borderRadius:'99px',background:'var(--line,#ddd)',overflow:'hidden',margin:'8px 0'}},h('div',{style:{width:i.pct+'%',height:'100%',background:warn?'var(--warn,#ff9f0a)':'var(--accent,#0a84ff)'}}));
+ return h('div',{class:'card'},h('h3',null,'Miejsce w pamięci'),
+  h('div',{class:'small'},'Zajęte: ',h('b',null,kb(i.used)),' z ok. 10 MB limitu przeglądarki (',i.pct+'%)'),bar,
+  warn?h('div',{class:'small warn',style:{marginBottom:'8px'}},'Pamięć kończy się. Usuń stare zdjęcia (paragony, stylizacje) lub zrób kopię i wyczyść to, czego nie potrzebujesz.'):null,
+  h('div',{class:'small muted'},'Zdjęcia i pliki: ',h('b',null,kb(i.photos))),
+  top.length?h('div',{style:{marginTop:'6px'}},top.map(([m,n])=>h('div',{class:'small row',style:{justifyContent:'space-between'}},h('span',null,names[m]||m),h('span',{class:'muted'},kb(n*2))))):null)};
+/* ostrzeżenie raz na sesję po zalogowaniu, gdy >80% */
+let warned=false;const r1=App.render;
+App.render=function(){const r=r1.apply(this,arguments);if(this.db&&!warned){warned=true;setTimeout(()=>{try{const i=App.spaceInfo();if(i.pct>=80)toast('Pamięć prawie pełna ('+i.pct+'%) – zobacz Ustawienia → Miejsce')}catch(e){}},2500)}return r};
+})();
 /* ===== Tylko jako zainstalowana aplikacja: w zwykłej karcie przeglądarki pokazujemy instrukcję instalacji ===== */
 (()=>{
 const web=/^https?:/.test(location.protocol);if(!web)return;
