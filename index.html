@@ -250,6 +250,18 @@ input[type=checkbox]:checked{animation:tick .28s cubic-bezier(.3,1.6,.5,1)}
 @keyframes toastIn{from{opacity:0;transform:translateY(20px) scale(.92)}to{opacity:1;transform:none}}
 .li{transition:background .2s}
 @media (prefers-reduced-motion:reduce){#view.enter>*,#view.enter .bar>i{animation:none!important}}
+
+/* --- 5.7: wygląd --- */
+html[data-contrast=high]{--muted:#3a3a3c;--line:rgba(0,0,0,.4);--accent-soft:rgba(10,132,255,.22)}
+html[data-contrast=high][data-theme=dark]{--muted:#e5e5ea;--line:rgba(255,255,255,.5)}
+html[data-contrast=high] .card,html[data-contrast=high] .btn,html[data-contrast=high] input,html[data-contrast=high] select,html[data-contrast=high] textarea{border:1.5px solid var(--line)!important}
+html[data-contrast=high] .muted,html[data-contrast=high] .tiny{color:var(--muted)!important;opacity:1!important}
+html[data-hand] button,html[data-hand] select,html[data-hand] input:not([type=checkbox]):not([type=radio]){min-height:46px}
+html[data-hand] .fab{width:64px;height:64px;bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+html[data-hand=left] .fab{right:auto;left:16px}html[data-hand=right] .fab{right:16px}
+html[data-hand] #tabbar .tb{min-height:60px}
+html[data-hand] .modal footer,html[data-hand] .modal .actions{position:sticky;bottom:0;background:var(--card);padding-top:10px}
+html[data-hand] .modal footer .btn{flex:1}
 </style>
 </head>
 <body>
@@ -394,8 +406,8 @@ const App={
  commit(){this.rev++;this.save();this.render()},
  log(t){this.db.log.unshift({t:new Date().toISOString(),m:t});this.db.log.length=Math.min(this.db.log.length,200)},
  applyTheme(){const s=this.db?this.db.settings:{theme:'auto',accent:'#0a84ff'};
-  const dark=s.theme==='dark'||(s.theme==='auto'&&matchMedia('(prefers-color-scheme:dark)').matches);
-  document.documentElement.dataset.theme=dark?'dark':'light';document.documentElement.style.setProperty('--accent',s.accent||'#0a84ff');
+  const hr=new Date().getHours(),dark=s.theme==='dark'||(s.theme==='auto'&&matchMedia('(prefers-color-scheme:dark)').matches)||(s.theme==='time'&&(hr>=20||hr<7));
+  document.documentElement.dataset.theme=dark?'dark':'light';document.documentElement.style.setProperty('--accent',s.accent||'#0a84ff');{const d=document.documentElement,z={s:.92,m:1,l:1.12,xl:1.25}[s.font||'m']||1;d.style.zoom=z===1?'':z;d.dataset.contrast=s.contrast?'high':'';d.dataset.hand=s.hand&&s.hand!=='off'?s.hand:''}
   const b=$('#theme-btn');if(b)b.innerHTML=ico(dark?'sun':'moon')},
  go(id){location.hash='#/'+id},
  render(){
@@ -577,7 +589,10 @@ App.register({id:'settings',title:'Ustawienia',icon:'settings',group:'System',or
   const accents=['#0a84ff','#5e5ce6','#30b0c7','#34c759','#ff9f0a','#ff375f','#bf5af2'];
   el.append(h('div',{class:'grid g2'},
    h('div',{class:'card'},h('h3',null,'Wygląd'),
-    h('div',{class:'field'},h('label',null,'Motyw'),seg([['auto','Auto'],['light','Jasny'],['dark','Ciemny']],s.theme,v=>{s.theme=v;App.applyTheme();App.commit()})),
+    h('div',{class:'field'},h('label',null,'Motyw'),seg([['auto','Auto'],['time','Wg pory dnia'],['light','Jasny'],['dark','Ciemny']],s.theme,v=>{s.theme=v;App.applyTheme();App.commit()}),s.theme==='time'?h('div',{class:'tiny muted',style:{marginTop:'4px'}},'Ciemny od 20:00 do 7:00.'):null),
+    h('div',{class:'field'},h('label',null,'Rozmiar tekstu'),seg([['s','Mały'],['m','Normalny'],['l','Duży'],['xl','Największy']],s.font||'m',v=>{s.font=v;App.applyTheme();App.commit()})),
+    h('div',{class:'field'},h('label',{class:'chk'},h('input',{type:'checkbox',checked:!!s.contrast,onchange:e=>{s.contrast=e.target.checked;App.applyTheme();App.commit()}}),'Wysoki kontrast')),
+    h('div',{class:'field'},h('label',null,'Tryb jednej ręki'),seg([['off','Wyłączony'],['right','Prawa ręka'],['left','Lewa ręka']],s.hand||'off',v=>{s.hand=v;App.applyTheme();App.commit()}),h('div',{class:'tiny muted',style:{marginTop:'4px'}},'Większe przyciski i przycisk „+” po wybranej stronie. Dla telefonów.')),
     h('div',{class:'field'},h('label',null,'Kolor akcentu'),h('div',{class:'row wrap'},accents.map(c=>h('button',{class:'btn icon',style:{background:c,borderColor:s.accent===c?'var(--text)':'transparent',width:'34px',height:'34px',borderRadius:'50%',padding:0},'aria-label':'Akcent '+c,onclick:()=>{s.accent=c;App.applyTheme();App.commit()}})))),
     h('div',{class:'field'},h('label',{for:'un'},'Twoje imię (do powitania)'),h('input',{id:'un',type:'text',value:s.userName||'',onchange:e=>{s.userName=e.target.value.trim();App.save();toast('Zapisano')}})),
     btn('Przywróć domyślne widżety',()=>{s.widgetOrder=[];s.widgetHidden=[];App.commit();toast('Przywrócono')},'sm')),
@@ -4167,7 +4182,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='5.6';App.ver=VER;let reg=null,upd=false;
+const VER='5.7';App.ver=VER;let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');
@@ -5358,6 +5373,8 @@ window.emptyArt=t=>{const k=(ART.find(a=>a[0].test(t||''))||[0,'sparkle'])[1];
 (function(){let tm=0;const run=()=>{const v=document.getElementById('view');if(!v)return;v.classList.remove('enter');void v.offsetWidth;v.classList.add('enter');clearTimeout(tm);tm=setTimeout(()=>v.classList.remove('enter'),900);
  if(matchMedia('(prefers-reduced-motion:reduce)').matches)return;setTimeout(()=>{v.querySelectorAll('.kpi .v').forEach(e=>{const t=e.textContent.trim();if(!/^\d{1,6}$/.test(t)||e.children.length)return;const n=+t;if(n<2)return;const t0=performance.now();const step=now=>{const p=Math.min(1,(now-t0)/600);e.textContent=String(Math.round(n*(1-Math.pow(1-p,3))));if(p<1)requestAnimationFrame(step);else e.textContent=t};requestAnimationFrame(step)})},30)};
  window.addEventListener('hashchange',()=>setTimeout(run,20));if(window.__splash)window.__splash();setTimeout(run,60)})();
+
+setInterval(()=>{try{if(App.db&&App.db.settings.theme==='time')App.applyTheme()}catch(e){}},300000);
 /* ===== Tylko jako zainstalowana aplikacja: w zwykłej karcie przeglądarki pokazujemy instrukcję instalacji ===== */
 (()=>{
 const web=/^https?:/.test(location.protocol);if(!web)return;

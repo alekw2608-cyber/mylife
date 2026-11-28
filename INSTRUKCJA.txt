@@ -153,3 +153,8 @@ Ustawieniach → „Instrukcja krok po kroku (iPhone)”.
 Historia zmian: Ustawienia → Synchronizacja OneDrive → „Historia zmian”. Dla każdej synchronizacji widać
 urządzenie, godzinę i liczby zmian w modułach (+ dodane, ~ zmienione, − usunięte). Zapisywane są tylko nazwy
 modułów i liczby, bez treści. Ostatnie 60 wpisów.
+
+CZĘŚĆ 22 – WYGLĄD I DOSTĘPNOŚĆ (wersja 5.7)
+Ustawienia → Wygląd: motyw „Wg pory dnia” (ciemny od 20:00 do 7:00), rozmiar tekstu (mały, normalny, duży,
+największy), wysoki kontrast oraz tryb jednej ręki (większe przyciski, przycisk „+” po lewej lub prawej).
+Kolor akcentu (7 kolorów) był już wcześniej. Ustawienia synchronizują się między urządzeniami.
