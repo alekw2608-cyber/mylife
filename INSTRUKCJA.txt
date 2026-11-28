@@ -142,3 +142,14 @@ CZĘŚĆ 19 – ANIMACJE (wersja 5.4)
 CZĘŚĆ 20 – SZYBKOŚĆ (wersja 5.5)
 Listy zadań pokazują po 60 pozycji z przyciskiem „Pokaż więcej”, a Oś czasu liczy dane jednorazowo.
 Przy 2000 zadaniach widok Zadań otwiera się ponad 4 razy szybciej, a Oś czasu prawie 2 razy.
+
+CZĘŚĆ 21 – IPHONE I HISTORIA ZMIAN (wersja 5.6)
+iPhone / iPad (Safari): 1) otwórz adres aplikacji w Safari (nie w oknie Facebooka czy poczty),
+2) dotknij Udostępnij, 3) „Do ekranu początkowego”, 4) zostaw „Otwórz jako aplikację internetową” i „Dodaj”,
+5) uruchom MyLife App z nowej ikony i dopiero tam załóż konto albo dołącz kodem („Mam już konto na innym urządzeniu”).
+Na iPhonie dane w Safari i w zainstalowanej aplikacji są osobne, dlatego konto zakładaj po instalacji.
+Powiadomienia działają od iOS 16.4 i tylko w zainstalowanej aplikacji. Pełna instrukcja jest też w
+Ustawieniach → „Instrukcja krok po kroku (iPhone)”.
+Historia zmian: Ustawienia → Synchronizacja OneDrive → „Historia zmian”. Dla każdej synchronizacji widać
+urządzenie, godzinę i liczby zmian w modułach (+ dodane, ~ zmienione, − usunięte). Zapisywane są tylko nazwy
+modułów i liczby, bez treści. Ostatnie 60 wpisów.
