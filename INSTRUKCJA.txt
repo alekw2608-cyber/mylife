@@ -189,3 +189,8 @@ CZĘŚĆ 28 (wersja 6.3)
 
 CZĘŚĆ 29 (wersja 6.4)
 - Konflikty synchronizacji: okno „Ten sam wpis zmieniono na dwóch urządzeniach" pokazuje teraz konkretne wartości („Tytuł: tu … · tam …"), więc wybierasz świadomie wersję każdego wpisu osobno. (Wybór po wpisach już działał – dodałem podgląd wartości.)
+
+CZĘŚĆ 30 (wersja 6.5)
+- Samouczek ma ilustracje (wygenerowane w Canvie, po 3–7 KB, działają offline) i delikatnie „pływają".
+- Konfetti po zrobieniu zadania lub nawyku (Ustawienia → Wygląd → można wyłączyć; wyłączone też przy „ogranicz ruch" w systemie).
+- Przyciski mają sprężyste „wciśnięcie".
