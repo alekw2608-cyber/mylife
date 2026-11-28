@@ -183,3 +183,6 @@ CZĘŚĆ 27 (wersja 6.2)
 - Kopia do pliku zawiera zdjęcia w całości. Zmiana hasła i odzyskiwanie kodem zachowują zdjęcia.
 - Ustawienia → Miejsce w pamięci: ile zajmują zdjęcia + przycisk „Wyczyść nieużywane zdjęcia".
 - Konta bez hasła (demo) działają jak dotąd – zdjęcia w bazie.
+
+CZĘŚĆ 28 (wersja 6.3)
+- Wyszukiwarka (lupa / Ctrl+K): filtry daty (Dziś, 7 dni, 30 dni, Rok), filtr tagów (#tag – klik w chip albo wpisz #tag w polu) oraz lista „Ostatnio otwierane".

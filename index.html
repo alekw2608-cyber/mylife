@@ -4224,7 +4224,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='6.2';App.ver=VER;let reg=null,upd=false;
+const VER='6.3';App.ver=VER;let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');
@@ -4839,12 +4839,36 @@ function actions(q){
   if(dk.length)out.push({icon:'🃏',label:'Dodaj fiszkę do talii „'+dk[0].name+'": '+m[1]+' → '+m[2],run:()=>{App.db.cards.cards.push({id:uid(),deck:dk[0].id,front:m[1],back:m[2],ease:2.5,int:0,reps:0,due:todayStr(),created:todayStr()});App.commit();toast('Dodano fiszkę')}})}
  return out}
 const HELP=[['wydatek 20 kawa','Dodaje wydatek z automatyczną kategorią'],['przychód 3000 pensja','Dodaje przychód'],['zadanie zadzwonić do banku jutro !1','Dodaje zadanie z terminem i priorytetem'],['wydarzenie piątek 18:00 kino','Dodaje wydarzenie do kalendarza'],['notatka pomysł na prezent','Zapisuje notatkę'],['fiszka dog;pies','Dodaje fiszkę do pierwszej talii']];
+const SKIP={settings:1,trash:1,log:1};
+const tOf=it=>String(it.title||it.name||it.text||it.label||it.party||it.front||it.q||'').slice(0,90);
+function deepAll(){const out=[],mods=App.mods||[];const db=App.db||{};
+ const take=(key,arr)=>{const m=mods.find(x=>x.id===key.split('.')[0]);for(const it of arr){if(!it||typeof it!=='object'||Array.isArray(it))continue;const t=tOf(it);if(!t)continue;
+  let txt=t;for(const k in it){const v=it[k];if(typeof v==='string'&&v.length<300&&!v.startsWith('data:')&&!v.startsWith('§b:'))txt+=' '+v}
+  const tags=Array.isArray(it.tags)?it.tags.map(x=>String(x).toLowerCase()):[];
+  const dr=[it.date,it.due,it.start,it.created,it.upd,it.d].find(x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}/.test(x));
+  out.push({title:t,mod:m?m.title:key,modId:m&&m.id,txt:txt.toLowerCase(),tags,date:dr?dr.slice(0,10):'',sub:dr?dLabel(dr.slice(0,10)):''})}};
+ for(const k in db){if(SKIP[k])continue;const v=db[k];if(Array.isArray(v))take(k,v);else if(v&&typeof v==='object')for(const p in v)if(Array.isArray(v[p]))take(k+'.'+p,v[p])}
+ return out}
+App.deepTags=()=>{const c={};deepAll().forEach(x=>x.tags.forEach(t=>c[t]=(c[t]||0)+1));return Object.entries(c).sort((a,b)=>b[1]-a[1]).map(x=>x[0])};
+App.deepFind=(q,{dt,tag})=>{const today=todayStr();let lo='',hi='';if(dt>0){lo=addDays(today,-dt);hi=addDays(today,dt===1?0:dt)}
+ return deepAll().filter(x=>(!q||x.txt.includes(q))&&(!tag||x.tags.includes(tag))&&(!dt||(x.date&&x.date>=lo&&x.date<=hi))).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,60).map(x=>({title:x.title,sub:x.sub,mod:x.mod,go:()=>{if(x.modId)App.go(x.modId)}}))};
 App.searchUI=function(){
- let filt='';const inp=h('input',{type:'text',placeholder:'Szukaj albo wpisz polecenie, np. „wydatek 20 kawa"',autofocus:true,style:{width:'100%'},'aria-label':'Szukaj lub polecenie'});
- const chips=h('div',{class:'row wrap',style:{gap:'6px',margin:'10px 0 4px'}}),out=h('div',{style:{marginTop:'6px'}});let acts=[];
+ let filt='',dt=0,tag='',tagTyped=false;const inp=h('input',{type:'text',placeholder:'Szukaj albo wpisz polecenie, np. „wydatek 20 kawa"',autofocus:true,style:{width:'100%'},'aria-label':'Szukaj lub polecenie'});
+ const chips2=h('div',{class:'row wrap',style:{gap:'6px',margin:'8px 0 0'}}),chips=h('div',{class:'row wrap',style:{gap:'6px',margin:'10px 0 4px'}}),out=h('div',{style:{marginTop:'6px'}});let acts=[];
  const row=(onclick,left,title,sub,chip)=>h('div',{class:'li',style:{cursor:'pointer'},tabindex:'0',role:'button',onclick,onkeydown:e=>{if(e.key==='Enter')onclick()}},left?h('span',{style:{width:'24px',textAlign:'center',fontWeight:700}},left):null,h('div',{class:'sp'},h('div',{class:'t'},title),sub?h('div',{class:'d'},sub):null),chip?h('span',{class:'chip'},chip):null);
- const run=()=>{const raw=inp.value.trim(),q=raw.toLowerCase();out.innerHTML='';chips.innerHTML='';acts=[];
-  if(q.length<2){out.append(h('div',{class:'small muted',style:{margin:'4px 0 8px'}},'Szybkie polecenia (Enter wykonuje pierwsze):'),...HELP.map(([c,d])=>row(()=>{inp.value=c;run();inp.focus()},'⌘',c,d,'')));return}
+ const RK='zycie.recent.'+App.mode,recs=()=>{try{return JSON.parse(localStorage.getItem(RK)||'[]')}catch(e){return[]}};
+ const rec=r=>{try{const l=recs().filter(x=>!(x.t===r.title&&x.m===(r.mod||'')));l.unshift({t:r.title,s:r.sub||'',m:r.mod||''});localStorage.setItem(RK,JSON.stringify(l.slice(0,8)))}catch(e){}};
+ const chipB=(l,on,f)=>h('button',{type:'button',class:'chip',style:{cursor:'pointer',minHeight:'30px',fontWeight:on?700:400,outline:on?'2px solid var(--accent)':'none'},onclick:f},l);
+ const drawF=()=>{chips2.innerHTML='';[[0,'Cały czas'],[1,'Dziś'],[7,'7 dni'],[30,'30 dni'],[365,'Rok']].forEach(([n,l])=>chips2.append(chipB(l,dt===n,()=>{dt=n;run()})));
+  const tg=App.deepTags();tg.slice(0,8).forEach(t=>chips2.append(chipB('#'+t,tag===t,()=>{tagTyped=false;tag=tag===t?'':t;run()})))};
+ const run=()=>{let raw=inp.value.trim();const tm=raw.match(/(?:^|\s)#([^\s#]+)/);if(tm){tag=tm[1].toLowerCase();tagTyped=true;raw=raw.replace(tm[0],' ').trim()}else if(tagTyped){tag='';tagTyped=false}const q=raw.toLowerCase();out.innerHTML='';chips.innerHTML='';acts=[];drawF();
+  const flt=dt>0||!!tag;
+  if(flt){const res=App.deepFind(q,{dt,tag});
+   if(!res.length){out.append(h('div',{class:'empty'},h('b',null,'Brak wyników'),'Zmień filtr lub frazę'));return}
+   res.forEach(r=>out.append(row(()=>{close();r.go()},'',r.title,r.sub||'',r.mod||'')));return}
+  if(q.length<2){const R=recs();if(R.length){out.append(h('div',{class:'small muted',style:{margin:'4px 0 6px'}},'Ostatnio otwierane:'),...R.map(x=>row(()=>{close();let f=null;App.searchers.forEach(g=>{try{(g(x.t.toLowerCase())||[]).forEach(r=>{if(!f&&r.title===x.t&&(r.mod||'')===x.m)f=r})}catch(e){}});if(f)f.go();else{const m=(App.mods||[]).find(z=>z.title===x.m);if(m)App.go(m.id)}},'🕘',x.t,x.s,x.m)))}
+   out.append(h('div',{class:'small muted',style:{margin:'10px 0 8px'}},'Szybkie polecenia (Enter wykonuje pierwsze):'),...HELP.map(([c,d])=>row(()=>{inp.value=c;run();inp.focus()},'⌘',c,d,'')));return}
+  if(false){out.append(h('div',{class:'small muted',style:{margin:'4px 0 8px'}},'Szybkie polecenia (Enter wykonuje pierwsze):'),...HELP.map(([c,d])=>row(()=>{inp.value=c;run();inp.focus()},'⌘',c,d,'')));return}
   acts=actions(raw);acts.forEach(a=>out.append(h('div',{class:'li',style:{cursor:'pointer',background:'var(--accent-soft)',borderRadius:'10px',padding:'8px 10px',marginBottom:'6px'},tabindex:'0',role:'button',onclick:()=>{close();a.run()}},h('span',{style:{width:'24px',textAlign:'center',fontWeight:700}},a.icon),h('div',{class:'sp'},h('div',{class:'t'},a.label),h('div',{class:'d'},'Enter, aby wykonać')),h('span',{class:'chip good'},'Akcja'))));
   /* przejście do modułu */
   const nav=(App.mods||[]).filter(m=>m.title.toLowerCase().includes(q)).slice(0,4);
@@ -4854,10 +4878,10 @@ App.searchUI=function(){
   nav.forEach(m=>out.append(row(()=>{close();App.go(m.id)},'→','Przejdź do: '+m.title,'','Moduł')));
   const shown=res.filter(r=>!filt||(r.mod||'Inne')===filt);
   if(!shown.length&&!acts.length&&!nav.length){out.append(h('div',{class:'empty'},h('b',null,'Brak wyników'),'Spróbuj innej frazy'));return}
-  shown.slice(0,40).forEach(r=>out.append(row(()=>{close();r.go()},'',r.title,r.sub||'',r.mod||'')))};
+  shown.slice(0,40).forEach(r=>out.append(row(()=>{rec(r);close();r.go()},'',r.title,r.sub||'',r.mod||'')))};
  inp.addEventListener('input',()=>{filt='';run()});
  inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&acts.length){e.preventDefault();close();acts[0].run()}});
- run();const close=modal({title:'Szukaj i polecenia',body:h('div',null,inp,chips,out)})};
+ run();const close=modal({title:'Szukaj i polecenia',body:h('div',null,inp,chips2,chips,out)})};
 })();
 /* ===== Tryb prosty / pełny / własny + plan pierwszego tygodnia ===== */
 const Week=(()=>{
