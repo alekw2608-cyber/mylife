@@ -168,3 +168,6 @@ CZĘŚĆ 24 (wersja 5.9)
 - Udostępnianie: w innej aplikacji wybierz Udostępnij → MyLife; link/tekst trafia do Notatnika (tag „udostępnione"). Działa po zainstalowaniu aplikacji (Android/Chrome).
 - Błędy: zamiast pustego ekranu pojawia się komunikat z przyciskami Odśwież / Wyślij raport (kopiuje opis błędu bez Twoich danych).
 - Ustawienia → Miejsce w pamięci: ile zajmują zdjęcia i które moduły; ostrzeżenie powyżej 70–80%.
+
+CZĘŚĆ 25 (wersja 6.0)
+- Historia wersji → przy każdej migawce przycisk „Wpisy": lista pojedynczych wpisów usuniętych lub zmienionych od tamtej chwili, z przyciskiem „Przywróć" / „Cofnij zmianę". Reszta danych zostaje nietknięta, a stan sprzed przywrócenia zapisuje się jako migawka.

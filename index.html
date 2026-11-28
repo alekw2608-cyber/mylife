@@ -4182,7 +4182,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='5.9';App.ver=VER;let reg=null,upd=false;
+const VER='6.0';App.ver=VER;let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');
@@ -5210,9 +5210,25 @@ const modName=key=>{const id=key.split('.')[0];let m=null;try{m=Array.isArray(Ap
 function restoreTrash(x){const db=App.db,[a,b]=x.k.split('.'),arr=b?(db[a]||{})[b]:db[a];if(!Array.isArray(arr)){toast('Nie można przywrócić: brak miejsca docelowego');return}
  if(!arr.some(i=>i&&i.id===x.id))arr.push(x.item);db.trash=(db.trash||[]).filter(y=>y!==x);App.commit();toast('Przywrócono: '+x.title)}
 const dt=t=>new Date(t).toLocaleString('pl-PL',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+
+/* --- przywracanie pojedynczych wpisów z migawki --- */
+const same=(a,b)=>{try{return JSON.stringify(a)===JSON.stringify(b)}catch(e){return false}};
+async function openEntries(x){let sd;
+ try{sd=App.key?await Crypt.open(App.key,JSON.parse(x.s)):JSON.parse(x.s)}catch(e){toast('Tej wersji nie da się odczytać (np. po zmianie hasła).');return}
+ const old=arrays(sd),cur=arrays(App.db),rows=[];
+ for(const key in old){const cm=new Map((cur[key]||[]).map(i=>[i&&i.id,i]));for(const it of old[key]){if(!it||typeof it!=='object'||it.id==null)continue;const c=cm.get(it.id);if(!c)rows.push({key,it,kind:'del'});else if(!same(c,it))rows.push({key,it,cur:c,kind:'chg'})}}
+ let close;const body=h('div',{class:'col',style:{gap:'8px'}},h('p',{class:'small muted',style:{margin:0}},'Wpisy z migawki z '+dt(x.t)+', które dziś są usunięte lub inne. Przywracasz tylko wybrane – reszta danych zostaje bez zmian.'));
+ const draw=()=>{[...body.querySelectorAll('.er')].forEach(n=>n.remove());
+  const list=rows.filter(r=>!r.done);if(!list.length){body.append(h('div',{class:'empty small er'},'Brak różnic – wszystko z tej migawki już jest w aplikacji.'));return}
+  let lastK='';list.slice(0,80).forEach(r=>{if(r.key!==lastK){lastK=r.key;body.append(h('div',{class:'small muted er',style:{marginTop:'6px',fontWeight:600}},modName(r.key)))}
+   body.append(h('div',{class:'card er',style:{background:'var(--card2)',boxShadow:'none',padding:'8px 12px'}},h('div',{class:'row',style:{justifyContent:'space-between',gap:'8px',alignItems:'center'}},h('div',{style:{minWidth:0}},h('div',{style:{overflowWrap:'anywhere'}},titleOf(r.it)),h('div',{class:'tiny muted'},r.kind==='del'?'usunięty':'zmieniony od tamtej pory')),
+    btn(r.kind==='del'?'Przywróć':'Cofnij zmianę',async()=>{await snapshot('Przed przywróceniem wpisu',true);const[p,q]=r.key.split('.'),arr=q?(App.db[p]||{})[q]:App.db[p];if(!Array.isArray(arr)){toast('Brak miejsca docelowego');return}
+      const copy=JSON.parse(JSON.stringify(r.it)),i=arr.findIndex(z=>z&&z.id===r.it.id);if(i>=0)arr[i]=copy;else arr.push(copy);if(App.db.trash)App.db.trash=App.db.trash.filter(t=>!(t.k===r.key&&t.id===r.it.id));r.done=1;App.commit();toast('Przywrócono: '+titleOf(r.it));draw()},'sm'))))});
+  if(list.length>80)body.append(h('div',{class:'tiny muted er'},'Pokazano 80 z '+list.length+'.'))};
+ draw();close=modal({title:'Wpisy z migawki',body,actions:[btn('Wróć do historii',()=>{close();openHistory()},'ghost')]})}
 function openHistory(){let close;const a=rd(App.mode);
  const body=h('div',{class:'col',style:{gap:'8px'}},h('p',{class:'small muted',style:{margin:0}},'Automatyczne kopie tego konta zapisane na tym urządzeniu: co najmniej godzinę odstępu, z ostatnich 15 dni. Są zaszyfrowane tak samo jak dane.'),
-  a.length?a.map(x=>h('div',{class:'card',style:{background:'var(--card2)',boxShadow:'none',padding:'10px 14px'}},h('div',{class:'row wrap',style:{justifyContent:'space-between',gap:'8px',alignItems:'center'}},h('div',null,h('b',null,dt(x.t)),h('div',{class:'tiny muted'},(x.l?x.l+' · ':'')+Math.round(x.s.length/1024)+' KB')),btn('Przywróć',()=>confirmBox('Przywrócić dane z '+dt(x.t)+'? Obecny stan zapiszę wcześniej jako osobną migawkę.',async()=>{if(await restore(x))close()},{yes:'Przywróć'}),'sm')))):h('div',{class:'empty small'},'Brak migawek. Pierwsza pojawi się po kilku zmianach.'));
+  a.length?a.map(x=>h('div',{class:'card',style:{background:'var(--card2)',boxShadow:'none',padding:'10px 14px'}},h('div',{class:'row wrap',style:{justifyContent:'space-between',gap:'8px',alignItems:'center'}},h('div',null,h('b',null,dt(x.t)),h('div',{class:'tiny muted'},(x.l?x.l+' · ':'')+Math.round(x.s.length/1024)+' KB')),h('div',{class:'row',style:{gap:'6px'}},btn('Wpisy',()=>{close();openEntries(x)},'sm ghost'),btn('Przywróć',()=>confirmBox('Przywrócić dane z '+dt(x.t)+'? Obecny stan zapiszę wcześniej jako osobną migawkę.',async()=>{if(await restore(x))close()},{yes:'Przywróć'}),'sm'))))):h('div',{class:'empty small'},'Brak migawek. Pierwsza pojawi się po kilku zmianach.'));
  close=modal({title:'Historia wersji',body,actions:[btn('Zrób migawkę teraz',async()=>{await snapshot('Ręczna',true);close();openHistory()}),btn('Zamknij',()=>close(),'ghost')]})}
 function openTrash(){let close;const T=(App.db.trash||[]);
  const body=h('div',{class:'col',style:{gap:'8px'}},h('p',{class:'small muted',style:{margin:0}},'Usunięte wpisy przechowuję 30 dni. Możesz je przywrócić w to samo miejsce.'),
