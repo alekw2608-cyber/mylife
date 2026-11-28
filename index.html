@@ -4224,7 +4224,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='6.3';App.ver=VER;let reg=null,upd=false;
+const VER='6.4';App.ver=VER;let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');
@@ -5092,9 +5092,10 @@ function conflict(m,rem){return new Promise(res=>{let close;const done=fn=>async
  const body=h('div',null,h('p',null,'Dane na tym urządzeniu i w OneDrive zmieniły się niezależnie. Wybierz, którą wersję zachować. Drugą można najpierw pobrać jako kopię.'),h('p',{class:'small muted'},'OneDrive: zmieniono '+(rem.t?new Date(rem.t).toLocaleString('pl-PL'):'?')));
  close=modal({title:'Konflikt wersji',body,actions:[btn('Zachowaj to urządzenie',done(()=>push(m,rem.eTag)),'primary'),btn('Zachowaj z OneDrive',done(async()=>{try{await App.exportJSON()}catch(e){}await applyRemote(m,rem)})),btn('Anuluj',done(async()=>{}),'ghost')]})})}
 const FN={title:'Tytuł',name:'Nazwa',amount:'Kwota',status:'Status',date:'Data',due:'Termin',note:'Notatka',desc:'Opis',prio:'Priorytet',cat:'Kategoria',catId:'Kategoria',start:'Początek',end:'Koniec',time:'Godzina',party:'Kontrahent'};
+const fv=x=>{if(x===undefined||x===null||x==='')return '(puste)';if(typeof x==='string'&&(x.startsWith('data:')||x.startsWith('§b:')))return '(zdjęcie/plik)';if(typeof x==='object')try{x=JSON.stringify(x)}catch(e){return '(złożone)'}x=String(x);return x.length>60?x.slice(0,60)+'…':x};
 function askConflicts(cs){return new Promise(res=>{let close;const rows=cs.map((c,i)=>{const nm='cf'+i,L=h('input',{type:'radio',name:nm,checked:true}),R=h('input',{type:'radio',name:nm});
   const txt={both:['Wersja z tego urządzenia','Wersja z drugiego urządzenia','Zmieniono na obu urządzeniach'+(c.fields.length?' (pola: '+c.fields.map(f=>FN[f]||f).join(', ')+')':'')],'del-remote':['Zachowaj (zmieniony tutaj)','Usuń','Zmieniono tutaj, ale na drugim urządzeniu usunięto'],'del-local':['Zostaw usunięty','Przywróć (zmieniony na drugim)','Usunięto tutaj, ale na drugim urządzeniu zmieniono']}[c.kind];
-  return{L,R,el:h('div',{class:'card',style:{background:'var(--card2)',boxShadow:'none',padding:'12px 14px'}},h('b',{style:{overflowWrap:'anywhere'}},c.label),h('div',{class:'tiny muted'},(c.where?c.where+' · ':'')+txt[2]),
+  return{L,R,el:h('div',{class:'card',style:{background:'var(--card2)',boxShadow:'none',padding:'12px 14px'}},h('b',{style:{overflowWrap:'anywhere'}},c.label),h('div',{class:'tiny muted'},(c.where?c.where+' · ':'')+txt[2]),(c.vals||[]).slice(0,4).map(v=>h('div',{class:'tiny',style:{marginTop:'4px',overflowWrap:'anywhere'}},h('span',{class:'muted'},(FN[v.k]||v.k)+': '),'tu ',h('b',null,fv(v.l)),' · tam ',h('b',null,fv(v.r)))),
    h('label',{class:'chk small',style:{display:'flex',gap:'8px',marginTop:'6px'}},L,txt[0]),h('label',{class:'chk small',style:{display:'flex',gap:'8px',marginTop:'4px'}},R,txt[1]))}});
  const go=()=>{const p=rows.map(r=>r.R.checked?'remote':'local');close();res(p)};
  close=modal({title:'Ten sam wpis zmieniono na dwóch urządzeniach',body:h('div',{class:'col',style:{gap:'8px'}},h('p',{class:'small muted',style:{margin:0}},'Wszystko inne scaliłem automatycznie. Wybierz, którą wersję zachować w tych '+cs.length+' wpisach:'),...rows.map(r=>r.el)),actions:[btn('Scal',go,'primary'),btn('Anuluj',()=>{close();res(null)},'ghost')]})})}
@@ -5329,7 +5330,7 @@ function mergeIdArr(b,l,r,ctx){const mb=mapOf(b),mr=mapOf(r),ml=mapOf(l),res=[],
   if(rr){if(sj(it)===sj(rr)){res.push(it);continue}
    if(bb&&sj(bb)===sj(it)){res.push(rr);continue}if(bb&&sj(bb)===sj(rr)){res.push(it);continue}
    const{out,bad}=mergeItem(bb,it,rr,ctx);res.push(out);
-   if(bad.length){const c=mkConflict(ctx,'both',out,rr,ch=>{if(ch==='remote')bad.forEach(f=>{if(f.r===undefined)delete out[f.k];else out[f.k]=f.r})});c.fields=bad.map(f=>f.k);ctx.conflicts.push(c)}
+   if(bad.length){const c=mkConflict(ctx,'both',out,rr,ch=>{if(ch==='remote')bad.forEach(f=>{if(f.r===undefined)delete out[f.k];else out[f.k]=f.r})});c.fields=bad.map(f=>f.k);c.vals=bad.map(f=>({k:f.k,l:out[f.k],r:f.r}));ctx.conflicts.push(c)}
    continue}
   if(bb){if(sj(bb)===sj(it))continue; // zdalnie usunięto, lokalnie bez zmian
    const c=mkConflict(ctx,'del-remote',it,null,ch=>{if(ch==='remote'){const i=res.indexOf(it);if(i>=0)res.splice(i,1)}});res.push(it);ctx.conflicts.push(c);continue}

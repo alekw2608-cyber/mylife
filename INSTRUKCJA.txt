@@ -186,3 +186,6 @@ CZĘŚĆ 27 (wersja 6.2)
 
 CZĘŚĆ 28 (wersja 6.3)
 - Wyszukiwarka (lupa / Ctrl+K): filtry daty (Dziś, 7 dni, 30 dni, Rok), filtr tagów (#tag – klik w chip albo wpisz #tag w polu) oraz lista „Ostatnio otwierane".
+
+CZĘŚĆ 29 (wersja 6.4)
+- Konflikty synchronizacji: okno „Ten sam wpis zmieniono na dwóch urządzeniach" pokazuje teraz konkretne wartości („Tytuł: tu … · tam …"), więc wybierasz świadomie wersję każdego wpisu osobno. (Wybór po wpisach już działał – dodałem podgląd wartości.)
