@@ -401,8 +401,8 @@ const App={
   if(fresh&&mode==='demo')for(const k in this.seeds)try{this.seeds[k](db)}catch(e){console.error('seed',k,e)}
   this.db=db;this.mode=mode;this.save(true);this.rev++;
  },
- save(now){clearTimeout(this._t);const f=()=>{if(!this.db)return;const k='zycie.v1.'+this.mode,fail=()=>toast('Nie udało się zapisać (brak miejsca w pamięci przeglądarki). Zrób kopię zapasową.');const json=JSON.stringify(this.db);
-   if(this.key){const key=this.key,s=this.salt,it=this.iter,rec=this.rec||undefined;this._p=(this._p||Promise.resolve()).then(()=>Crypt.seal(key,json)).then(b=>{try{localStorage.setItem(k,JSON.stringify({enc:1,v:1,iter:it,s,...b,rec}))}catch(e){fail()}}).catch(e=>console.error(e))}
+ save(now){clearTimeout(this._t);const f=()=>{if(!this.db)return;const k='zycie.v1.'+this.mode,fail=()=>toast('Nie udało się zapisać (brak miejsca w pamięci przeglądarki). Zrób kopię zapasową.');const json=this.key?JSON.stringify(this.db,Blobs.rep):JSON.stringify(this.db);
+   if(this.key){const key=this.key,s=this.salt,it=this.iter,rec=this.rec||undefined,mode=this.mode,db=this.db;this._p=(this._p||Promise.resolve()).then(async()=>{let j=json;if(!(await Blobs.flush(key,mode)))j=JSON.stringify(db);return Crypt.seal(key,j)}).then(b=>{try{localStorage.setItem(k,JSON.stringify({enc:1,v:1,iter:it,s,...b,rec}))}catch(e){fail()}}).catch(e=>console.error(e))}
    else{try{localStorage.setItem(k,json)}catch(e){fail()}}};if(now)f();else this._t=setTimeout(f,150)},
  commit(){this.rev++;this.save();this.render()},
  log(t){this.db.log.unshift({t:new Date().toISOString(),m:t});this.db.log.length=Math.min(this.db.log.length,200)},
@@ -459,19 +459,19 @@ const App={
    h('div',{class:'row wrap',style:{justifyContent:'center',margin:'12px 0',gap:'8px'}},btn('Kopiuj',()=>{navigator.clipboard&&navigator.clipboard.writeText(code).then(()=>toast('Skopiowano'),()=>toast('Zaznacz i skopiuj ręcznie'))},'sm'),btn('Pobierz plik',dl,'sm'),btn('Drukuj',()=>printReport('Kod odzyskiwania – MyLife App',h('div',null,h('div',{style:{font:'22px monospace',margin:'30px 0'}},code),h('p',null,'Konto: '+this.accName(this.mode)))),'sm')),
    h('label',{class:'chk small'},ok,'Zapisałem/am kod w bezpiecznym miejscu'));
   const close=modal({title:'Kod odzyskiwania hasła',body,actions:[done]})},
- recoverUI(mode,env){if(!env.rec){toast('To konto nie ma kodu odzyskiwania');return}formModal({title:'Odzyskiwanie dostępu',hint:'Podaj kod odzyskiwania i ustaw nowe hasło. Dane zostaną zachowane.',fields:[{k:'code',label:'Kod odzyskiwania',req:true,placeholder:'XXXX-XXXX-XXXX-XXXX-XXXX-XXXX'},...this.pwFields()],submit:'Odzyskaj dostęp',onSubmit:o=>{(async()=>{let db;try{const pw=await Crypt.unwrapRec(o.code,env.rec);const k=await Crypt.derive(pw,Crypt.unb(env.s),env.iter);db=await Crypt.open(k,env)}catch(e){toast('Nieprawidłowy kod odzyskiwania');return}await this.mkKey(o.p1);const code=await this.newRecovery(o.p1);this.enter(mode,db);this.showRecovery(code)})()}})},
+ recoverUI(mode,env){if(!env.rec){toast('To konto nie ma kodu odzyskiwania');return}formModal({title:'Odzyskiwanie dostępu',hint:'Podaj kod odzyskiwania i ustaw nowe hasło. Dane zostaną zachowane.',fields:[{k:'code',label:'Kod odzyskiwania',req:true,placeholder:'XXXX-XXXX-XXXX-XXXX-XXXX-XXXX'},...this.pwFields()],submit:'Odzyskaj dostęp',onSubmit:o=>{(async()=>{let db;try{const pw=await Crypt.unwrapRec(o.code,env.rec);const k=await Crypt.derive(pw,Crypt.unb(env.s),env.iter);db=await Crypt.open(k,env)}catch(e){toast('Nieprawidłowy kod odzyskiwania');return}const ok0=await Crypt.derive(await Crypt.unwrapRec(o.code,env.rec),Crypt.unb(env.s),env.iter);await this.mkKey(o.p1);await Blobs.rekey(mode,ok0,this.key);const code=await this.newRecovery(o.p1);await Blobs.hydrate(db,{mode,key:this.key});this.enter(mode,db);this.showRecovery(code)})()}})},
  needsPw(id){const r=localStorage.getItem('zycie.v1.'+id);return !(r&&r.startsWith('{"enc"'))},
  forcePw(id){formModal({title:'Ustaw hasło do konta „'+this.accName(id)+'”',values:{},hint:'Każde konto wymaga hasła. Dane tego konta zostaną zaszyfrowane. Hasła nie da się odzyskać.',fields:this.pwFields(),submit:'Ustaw hasło i wejdź',onSubmit:o=>{let db=null;try{db=JSON.parse(localStorage.getItem('zycie.v1.'+id)||'null')}catch(e){}if(db&&db.enc){toast('Dane są już zaszyfrowane');return false}(async()=>{await this.mkKey(o.p1);const code=await this.newRecovery(o.p1);this.enter(id,db||this.baseDb());this.showRecovery(code)})()}})},
  renameAccount(id){const A=this.accounts(),a=A.find(x=>x.id===id);if(!a)return;formModal({title:'Zmień nazwę konta',values:{name:a.name},fields:[{k:'name',label:'Nazwa konta',req:true}],onSubmit:o=>{const nm=o.name.trim();if(A.some(x=>x!==a&&x.name.toLowerCase()===nm.toLowerCase())){toast('Konto o takiej nazwie już istnieje');return false}a.name=nm;this.saveAccounts(A);this.start()}})},
  deleteAccount(id){const a=this.accounts().find(x=>x.id===id);if(!a)return;let env=null;try{const o=JSON.parse(localStorage.getItem('zycie.v1.'+id)||'null');if(o&&o.enc)env=o}catch(e){}
-  const wipe=()=>{localStorage.removeItem('zycie.v1.'+id);this.saveAccounts(this.accounts().filter(x=>x.id!==id));toast('Konto usunięte');this.start()};
+  const wipe=()=>{localStorage.removeItem('zycie.v1.'+id);try{Blobs.dropAccount(id)}catch(e){}this.saveAccounts(this.accounts().filter(x=>x.id!==id));toast('Konto usunięte');this.start()};
   if(!env){confirmBox('Konto „'+a.name+'” nie ma jeszcze hasła. Zostanie trwale usunięte wraz z danymi.',wipe,{yes:'Usuń konto'});return}
   formModal({title:'Usuń konto „'+a.name+'”',values:{},hint:'Konto i wszystkie jego dane zostaną trwale usunięte z tej przeglądarki. Tej operacji nie można cofnąć. Aby potwierdzić, wpisz hasło do konta.',fields:[{k:'pw',label:'Hasło do konta',type:'password',req:true}],submit:'Usuń konto',onSubmit:o=>{(async()=>{try{const k=await Crypt.derive(o.pw,Crypt.unb(env.s),env.iter);await Crypt.open(k,env)}catch(e){toast('Nieprawidłowe hasło. Konto nie zostało usunięte.');return}wipe()})()}})},
  async logout(){clearTimeout(this._t);if(this.db){this.save(true);await this._p}this.onLock.forEach(f=>{try{f()}catch(e){}});this.db=null;this.key=null;this.rec=null;this.mode=null;$('#view').innerHTML='';$('#nav').classList.remove('open');$('#demo-banner').hidden=true;location.hash='';this.start()},
  pick(mode,e){if(mode!=='demo'&&this.needsPw(mode)){this.forcePw(mode);return}const s=$('#start'),box=s.querySelector('.start-box'),cards=[...s.querySelectorAll('.start-card')],me=e&&e.currentTarget;if(matchMedia('(prefers-reduced-motion:reduce)').matches||!box){this.enter(mode);return}cards.forEach(k=>k.classList.add(k===me?'chosen':'gone'));box.classList.add('leaving');setTimeout(()=>{this.enter(mode);const a=$('#app');a.classList.remove('in');void a.offsetWidth;a.classList.add('in')},520)},
  unlockUI(mode,env){const s=$('#start');$('#app').hidden=true;s.hidden=false;s.innerHTML='';this.db=null;const err=h('div',{class:'bad small',role:'alert',style:{minHeight:'20px',marginTop:'8px'}});
   const pw=h('input',{type:'password',id:'unlock_pw',autocomplete:'current-password','aria-label':'Hasło',style:{textAlign:'center'}});
-  const go=async()=>{if(!pw.value)return;err.textContent='';try{const key=await Crypt.derive(pw.value,Crypt.unb(env.s),env.iter);const db=await Crypt.open(key,env);this.key=key;this.salt=env.s;this.iter=env.iter;this.rec=env.rec||null;this.enter(mode,db);if(!env.rec)this.autoRecovery(pw.value)}catch(e){err.textContent='Nieprawidłowe hasło.';pw.select()}};
+  const go=async()=>{if(!pw.value)return;err.textContent='';try{const key=await Crypt.derive(pw.value,Crypt.unb(env.s),env.iter);const db=await Crypt.open(key,env);await Blobs.hydrate(db,{mode,key});this.key=key;this.salt=env.s;this.iter=env.iter;this.rec=env.rec||null;this.enter(mode,db);if(!env.rec)this.autoRecovery(pw.value)}catch(e){err.textContent='Nieprawidłowe hasło.';pw.select()}};
   s.append(h('div',{class:'start-box'},h('div',{class:'brand',style:{justifyContent:'center',fontSize:'20px'}},h('i',null,'◐'),'MyLife App'),h('h1',null,'Dane są zablokowane'),h('p',null,'Podaj hasło, aby odszyfrować dane ('+(mode==='demo'?'wersja demo':'konto „'+this.accName(mode)+'”')+').'),
    h('form',{onsubmit:e=>{e.preventDefault();go()},style:{maxWidth:'320px',margin:'0 auto'}},pw,err,h('button',{class:'btn primary',type:'submit',style:{width:'100%'}},'Odblokuj')),
    h('p',{class:'small muted',style:{marginTop:'22px'}},'Nie pamiętasz hasła? ',h('a',{href:'#',onclick:e=>{e.preventDefault();this.recoverUI(mode,env)}},'Użyj kodu odzyskiwania'),'. Bez hasła i bez kodu danych nie da się odzyskać, a konto można usunąć tylko po podaniu hasła. ',h('a',{href:'#',onclick:e=>{e.preventDefault();this.key=null;this.start()}},'Wróć do wyboru konta'))));setTimeout(()=>pw.focus(),30)},
@@ -484,7 +484,8 @@ const App={
  resetDemo(fromStart){confirmBox('Wszystko, co zmieniłeś w wersji demo (dodane, edytowane i usunięte wpisy), zostanie wycofane. Wrócą dane przykładowe z pierwszego uruchomienia. Twoja wersja „własna” nie jest ruszana.',()=>{localStorage.removeItem('zycie.v1.demo');this.key=null;if(fromStart){toast('Demo przywrócone');this.start()}else{this.enter('demo');toast('Dane demo przywrócone do stanu początkowego')}},{yes:'Przywróć demo',danger:false})},
  pickImport(){const i=h('input',{type:'file',accept:'.json,application/json',onchange:()=>{const f=i.files[0];if(!f)return;f.text().then(t=>{try{const d=JSON.parse(t);if(!d||!((d.enc&&d.s&&d.c)||(d.settings&&d.v!=null)))throw 0;
    let m=this.mode;if(!m){m='acc_'+uid();const A=this.accounts();A.push({id:m,name:'Import '+todayStr()});this.saveAccounts(A)}localStorage.setItem('zycie.v1.'+m,JSON.stringify(d));this.key=null;this.enter(m);if(!(d.enc))toast('Kopia wczytana')}catch(e){toast('To nie jest poprawny plik kopii zapasowej')}})}});i.click()},
- async exportJSON(){this.db.settings.lastBackup=new Date().toISOString();this.save(true);if(this.key){await this._p;download(`zycie-kopia-zaszyfrowana-${todayStr()}.json`,localStorage.getItem('zycie.v1.'+this.mode),'application/json')}else download(`zycie-kopia-${todayStr()}.json`,JSON.stringify(this.db,null,1),'application/json')},
+ async fullEnv(){const b=await Crypt.seal(this.key,JSON.stringify(this.db));return JSON.stringify({enc:1,v:1,iter:this.iter,s:this.salt,...b,rec:this.rec||undefined})},
+ async exportJSON(){this.db.settings.lastBackup=new Date().toISOString();this.save(true);if(this.key){await this._p;download(`zycie-kopia-zaszyfrowana-${todayStr()}.json`,await this.fullEnv(),'application/json')}else download(`zycie-kopia-${todayStr()}.json`,JSON.stringify(this.db,null,1),'application/json')},
  searchUI(){
   const inp=h('input',{type:'text',placeholder:'Szukaj w całej aplikacji…',autofocus:true});const out=h('div',{style:{marginTop:'10px'}});
   const run=()=>{const q=inp.value.trim().toLowerCase();out.innerHTML='';if(q.length<2){out.append(h('div',{class:'empty small'},'Wpisz co najmniej 2 znaki'));return}
@@ -2722,7 +2723,7 @@ let last=Date.now();['pointerdown','keydown','touchstart'].forEach(ev=>document.
 setInterval(()=>{if(App.key&&App.db){const m=App.db.settings.autoLock||0;if(m&&Date.now()-last>m*60000)App.lock()}},10000);
 async function verify(pw){try{const k=await Crypt.derive(pw,Crypt.unb(App.salt),App.iter);await Crypt.open(k,JSON.parse(localStorage.getItem('zycie.v1.'+App.mode)));return k}catch(e){return null}}
 const pwFields=(withOld)=>[...(withOld?[{k:'old',label:'Obecne hasło',type:'password',req:true}]:[]),{k:'p1',label:'Nowe hasło (min. 8 znaków)',type:'password',req:true,validate:(v,all)=>v.length<8?'Minimum 8 znaków':(withOld&&all&&all.old===v?'Nowe hasło musi być inne niż obecne':'')},{k:'p2',label:'Powtórz nowe hasło',type:'password',req:true,validate:(v,all)=>all&&all.p1!==v?'Hasła nie są takie same':''}];
-async function setPass(p){App.salt=Crypt.b64(Crypt.rand(16));App.iter=250000;App.key=await Crypt.derive(p,Crypt.unb(App.salt),App.iter);const code=await App.newRecovery(p);App.save(true);await App._p;App.showRecovery(code)}
+async function setPass(p){const oldKey=App.key,bm=App.mode;App.salt=Crypt.b64(Crypt.rand(16));App.iter=250000;App.key=await Crypt.derive(p,Crypt.unb(App.salt),App.iter);if(oldKey){try{await Blobs.rekey(bm,oldKey,App.key)}catch(e){console.error(e)}}const code=await App.newRecovery(p);App.save(true);await App._p;App.showRecovery(code)}
 App.verifyPw=async pw=>!!(App.key&&await verify(pw));
 App.securityCard=()=>{
  if(App.mode==='demo')return null;
@@ -2739,6 +2740,46 @@ App.securityCard=()=>{
     btn('Zmień hasło',()=>formModal({title:'Zmiana hasła',fields:pwFields(true),submit:'Zmień',onSubmit:o=>{verify(o.old).then(async k=>{if(!k){toast('Obecne hasło jest nieprawidłowe');return}await setPass(o.p1);App.log('zmieniono hasło szyfrowania');toast('Hasło zmienione')})}}),'sm')))}
  return c};
 })();
+/* ===== 6.2: zdjęcia i pliki poza główną bazą (IndexedDB, szyfrowane kluczem konta) + osobne pliki w OneDrive ===== */
+const Blobs=(()=>{
+const P='§b:',TH=3000;let enabled=false,miss=0;
+const cache=new Map(),need=new Map();
+let dbp=null;const idb=()=>dbp||(dbp=new Promise((ok,no)=>{try{const r=indexedDB.open('mylife-blobs',1);r.onupgradeneeded=()=>r.result.createObjectStore('b');r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error);r.onblocked=()=>no(new Error('blocked'))}catch(e){no(e)}}));
+const rq=(mode,fn)=>idb().then(d=>new Promise((ok,no)=>{const t=d.transaction('b',mode),s=t.objectStore('b'),q=fn(s);t.oncomplete=()=>ok(q&&q.result);t.onerror=()=>no(t.error);t.onabort=()=>no(t.error)}));
+const kget=k=>rq('readonly',s=>s.get(k)),kput=(k,v)=>rq('readwrite',s=>s.put(v,k)),kdel=k=>rq('readwrite',s=>s.delete(k)),kkeys=()=>rq('readonly',s=>s.getAllKeys());
+const hash=s=>{let a=5381,b=52711;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);a=((a<<5)+a^c)>>>0;b=((b<<5)+b^c)>>>0}return a.toString(36)+b.toString(36)+s.length.toString(36)};
+const isData=v=>typeof v==='string'&&v.length>TH&&v.charCodeAt(0)===100&&v.startsWith('data:');
+function refOf(v){let r=cache.get(v);if(!r){r=P+hash(v);if(cache.size>3000)cache.clear();cache.set(v,r);need.set(r,v)}return r}
+const rep=(k,v)=>enabled&&isData(v)?refOf(v):v;
+idb().then(()=>{enabled=!!(window.crypto&&crypto.subtle)}).catch(()=>{enabled=false});
+const K=(mode,ref)=>mode+'|'+ref;
+async function flush(key,mode){if(!need.size)return true;const items=[...need.entries()];
+ try{for(const [ref,data] of items){if(await kget(K(mode,ref))){need.delete(ref);continue}const b=await Crypt.seal(key,JSON.stringify(data));await kput(K(mode,ref),b);need.delete(ref)}return true}catch(e){console.error('blobs',e);return false}}
+function walk(o,f){if(!o||typeof o!=='object')return;if(Array.isArray(o)){for(let i=0;i<o.length;i++){const v=o[i];if(typeof v==='string'){const r=f(v);if(r!==undefined)o[i]=r}else if(v&&typeof v==='object')walk(v,f)}}else for(const k in o){const v=o[k];if(typeof v==='string'){const r=f(v);if(r!==undefined)o[k]=r}else if(v&&typeof v==='object')walk(v,f)}}
+/* wstawia dane z IndexedDB (a gdy brak – z OneDrive przez fetch) w miejsce odnośników */
+async function hydrate(db,{mode,key,fetch}={}){mode=mode||App.mode;key=key||App.key;const refs=new Set();walk(db,v=>{if(v.startsWith(P))refs.add(v)});miss=0;if(!refs.size||!key)return 0;
+ await flush(key,mode).catch(()=>{});const data=new Map();
+ for(const ref of refs){let d=null;
+  try{const b=await kget(K(mode,ref));if(b)d=await Crypt.open(key,b)}catch(e){d=null}
+  if(d==null&&fetch){try{const t=await fetch(ref);const b=JSON.parse(t);d=await Crypt.open(key,b);await kput(K(mode,ref),b)}catch(e){d=null}}
+  if(typeof d==='string')data.set(ref,d);else miss++}
+ walk(db,v=>{if(v.startsWith(P)&&data.has(v)){const d=data.get(v);cache.set(d,v);return d}});return miss}
+const missing=()=>miss;
+function allRefs(db){const s=new Set();walk(db,v=>{if(isData(v))s.add(refOf(v))});return s}
+const upKey=m=>'zycie.blob.up.'+m;
+async function up(mode,key,put){await flush(key,mode);const refs=allRefs(App.db);let done;try{done=new Set(JSON.parse(localStorage.getItem(upKey(mode))||'[]'))}catch(e){done=new Set()}
+ let n=0;for(const ref of refs){if(done.has(ref))continue;const b=await kget(K(mode,ref));if(!b)continue;await put(ref,JSON.stringify(b));done.add(ref);if(++n%10===0)try{localStorage.setItem(upKey(mode),JSON.stringify([...done]))}catch(e){}}
+ try{localStorage.setItem(upKey(mode),JSON.stringify([...done].filter(r=>refs.has(r))))}catch(e){}return n}
+async function rekey(mode,oldKey,newKey){const keys=(await kkeys()).filter(k=>String(k).startsWith(mode+'|'));
+ for(const k of keys){try{const b=await kget(k),d=await Crypt.open(oldKey,b);await kput(k,await Crypt.seal(newKey,JSON.stringify(d)))}catch(e){await kdel(k).catch(()=>{})}}
+ try{localStorage.removeItem(upKey(mode))}catch(e){}}
+async function stats(mode){try{const keys=(await kkeys()).filter(k=>String(k).startsWith(mode+'|'));let bytes=0;for(const k of keys){const b=await kget(k);bytes+=b&&b.c?b.c.length:0}return{n:keys.length,bytes}}catch(e){return{n:0,bytes:0}}}
+async function gc(mode,key){const keep=new Set();walk(App.db,v=>{if(isData(v))keep.add(refOf(v))});
+ let snaps=[];try{snaps=JSON.parse(localStorage.getItem('zycie.snap.'+mode)||'[]')}catch(e){}
+ for(const x of snaps){try{const d=await Crypt.open(key,JSON.parse(x.s));walk(d,v=>{if(v.startsWith(P))keep.add(v)})}catch(e){return -1}}
+ const keys=(await kkeys()).filter(k=>String(k).startsWith(mode+'|'));let n=0;for(const k of keys){if(!keep.has(String(k).slice(mode.length+1))){await kdel(k);n++}}return n}
+async function dropAccount(mode){try{const keys=(await kkeys()).filter(k=>String(k).startsWith(mode+'|'));for(const k of keys)await kdel(k);localStorage.removeItem(upKey(mode))}catch(e){}}
+return{rep,flush,hydrate,up,rekey,stats,gc,missing,dropAccount,isRef:v=>typeof v==='string'&&v.startsWith(P),on:()=>enabled}})();
 /* ============ MODA I GARDEROBA ============ */
 const Fashion=(()=>{
 App.defaults.fashion=()=>({items:[],outfits:[],wears:[],plan:[],packs:[],wish:[],looks:[],prefs:{budget:'',dirtyAfter:true}});
@@ -4183,7 +4224,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='6.1';App.ver=VER;let reg=null,upd=false;
+const VER='6.2';App.ver=VER;let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');
@@ -4958,6 +4999,7 @@ const hash=s=>{let a=5381,b=52711;for(let i=0;i<s.length;i++){const c=s.charCode
 const hashDb=()=>hash(JSON.stringify(App.db));
 const baseKey=id=>'zycie.sbase.'+(id||App.mode);
 const setBaseStr=(t,id)=>{try{localStorage.setItem(baseKey(id),t)}catch(e){}};
+const bname=(m,ref)=>'mylife-blob-'+m.sid+'-'+ref.slice(3)+'.json';const bfetch=m=>ref=>download(bname(m,ref));
 const openEnv=async t=>{const o=JSON.parse(t);if(!o||!o.enc||!App.key)throw new Error('nie można odczytać');return Crypt.open(App.key,o)};
 let skipAuto=0;
 const fname=m=>'mylife-'+m.sid+'.json';
@@ -5018,8 +5060,8 @@ async function upload(name,text,etag){const bytes=new TextEncoder().encode(text)
 async function envelope(){App.save(true);await App._p;const s=localStorage.getItem('zycie.v1.'+App.mode);let o=null;try{o=JSON.parse(s)}catch(e){}if(!o||!o.enc)throw new Error('Konto musi mieć hasło (dane są wysyłane tylko zaszyfrowane)');o.nm=App.accName(App.mode);return JSON.stringify(o)}
 let pendLog=[];
 const MODN={budget:'Budżet',tasks:'Zadania',calendar:'Kalendarz',health:'Zdrowie',habits:'Nawyki',goals:'Cele',inventory:'Inwentarz',food:'Jedzenie',fashion:'Moda',people:'Relacje',vault:'Sejf',home:'Dom',fitness:'Ćwiczenia',study:'Studia',move:'Przeprowadzka',travel:'Podróże',hobby:'Hobby',game:'Gra',notepad:'Notatnik',kb:'Baza wiedzy',cards:'Fiszki',prep:'Mój dzień',analytics:'Analityka',settings:'Ustawienia',map:'Mapa'};
-async function logChange(prevText){try{if(!prevText||!App.db)return;const prev=await openEnv(prevText);const d=Merge.diff(prev,App.db);const ks=Object.keys(d).filter(k=>d[k].a+d[k].c+d[k].d>0);if(!ks.length)return;pendLog.push({t:new Date().toISOString(),d:devId(),n:devName(),v:App.ver,s:ks.slice(0,8).map(k=>[MODN[k]||k,d[k].a,d[k].c,d[k].d])})}catch(e){}}
-async function push(m,etag){const h0=hashDb();const prevBase=localStorage.getItem(baseKey());const text=await envelope();const r=await upload(fname(m),text,etag);m.etag=r.eTag;m.dbHash=h0;m.at=new Date().toISOString();setMeta(m);await logChange(prevBase);setBaseStr(text)}
+async function logChange(prevText){try{if(!prevText||!App.db)return;const prev=await openEnv(prevText);const d=Merge.diff(prev,JSON.parse(JSON.stringify(App.db,Blobs.rep)));const ks=Object.keys(d).filter(k=>d[k].a+d[k].c+d[k].d>0);if(!ks.length)return;pendLog.push({t:new Date().toISOString(),d:devId(),n:devName(),v:App.ver,s:ks.slice(0,8).map(k=>[MODN[k]||k,d[k].a,d[k].c,d[k].d])})}catch(e){}}
+async function push(m,etag){await Blobs.up(App.mode,App.key,(ref,t)=>upload(bname(m,ref),t,null));const h0=hashDb();const prevBase=localStorage.getItem(baseKey());const text=await envelope();const r=await upload(fname(m),text,etag);m.etag=r.eTag;m.dbHash=h0;m.at=new Date().toISOString();setMeta(m);await logChange(prevBase);setBaseStr(text)}
 async function applyRemote(m,rem){try{await App.snapshot('Przed pobraniem z OneDrive',true)}catch(e){}const text=await download(rem.name);let o=null;try{o=JSON.parse(text)}catch(e){}if(!o||!o.enc||!o.c)throw new Error('Plik w OneDrive jest uszkodzony');
  await App._p;clearTimeout(App._t);const mode=App.mode;m.etag=rem.eTag;m.dbHash=null;m.needBase=1;m.at=new Date().toISOString();setMeta(m,mode);setBaseStr(text,mode);App.db=null;localStorage.setItem('zycie.v1.'+mode,text);toast('Pobrano nowsze dane z OneDrive. Odblokuj konto hasłem.');setTimeout(()=>location.reload(),900)}
 function conflict(m,rem){return new Promise(res=>{let close;const done=fn=>async()=>{close();try{await fn()}catch(e){st.err=e.message}res();repaint()};
@@ -5034,14 +5076,14 @@ function askConflicts(cs){return new Promise(res=>{let close;const rows=cs.map((
  close=modal({title:'Ten sam wpis zmieniono na dwóch urządzeniach',body:h('div',{class:'col',style:{gap:'8px'}},h('p',{class:'small muted',style:{margin:0}},'Wszystko inne scaliłem automatycznie. Wybierz, którą wersję zachować w tych '+cs.length+' wpisach:'),...rows.map(r=>r.el)),actions:[btn('Scal',go,'primary'),btn('Anuluj',()=>{close();res(null)},'ghost')]})})}
 async function pullInPlace(m,rem){const text=await download(rem.name);let db;try{db=await openEnv(text)}catch(e){return applyRemote(m,rem)}
  try{await App.snapshot('Przed pobraniem z OneDrive',true)}catch(e){}
- App.load(App.mode,db);App.render();m.etag=rem.eTag;m.at=new Date().toISOString();m.dbHash=hashDb();setBaseStr(text);setMeta(m);toast('Pobrano zmiany z drugiego urządzenia')}
+ await Blobs.hydrate(db,{fetch:bfetch(m)});App.load(App.mode,db);App.render();m.etag=rem.eTag;m.at=new Date().toISOString();m.dbHash=hashDb();setBaseStr(text);setMeta(m);toast('Pobrano zmiany z drugiego urządzenia')}
 async function mergeFlow(m,rem,depth=0){const text=await download(rem.name);let remote;try{remote=await openEnv(text)}catch(e){return conflict(m,rem)}
  let base=null;try{const bs=localStorage.getItem(baseKey());if(bs)base=await openEnv(bs)}catch(e){base=null}
  try{await App.snapshot('Przed scaleniem z OneDrive',true)}catch(e){}
- await App._p;const local=JSON.parse(JSON.stringify(App.db));
+ await App._p;const local=JSON.parse(JSON.stringify(App.db,Blobs.rep));
  const res=Merge.run(base,local,remote);
  if(res.conflicts.length){const picks=await askConflicts(res.conflicts);if(!picks){skipAuto=Date.now()+15*60000;st.err='Scalanie anulowane. Kliknij „Synchronizuj teraz”, gdy będziesz gotowy.';return}res.conflicts.forEach((c,i)=>c.apply(picks[i]))}
- App.load(App.mode,res.merged);App.render();m.etag=rem.eTag;setBaseStr(text);
+ await Blobs.hydrate(res.merged,{fetch:bfetch(m)});App.load(App.mode,res.merged);App.render();m.etag=rem.eTag;setBaseStr(text);
  try{await push(m,rem.eTag)}catch(e){if(e.conflict&&depth<3){const r2=await head(fname(m));if(r2)return mergeFlow(m,r2,depth+1)}throw e}
  toast(res.conflicts.length?'Scalono zmiany z OneDrive (rozstrzygnięto: '+res.conflicts.length+')':'Scalono zmiany z drugiego urządzenia')}
 function orphan(m){return new Promise(res=>{let close;const done=fn=>async()=>{close();try{await fn()}catch(e){st.err=e.message}res();repaint()};
@@ -5059,6 +5101,7 @@ async function sync(manual){if(st.busy)return;if(!manual&&Date.now()<skipAuto)re
   else if(m.etag&&!changed){await pullInPlace(m,rem)}
   else await mergeFlow(m,rem);
   if(!st.err&&meta()&&meta().sid===m.sid&&m.etag)try{await regTouch(m)}catch(e){}
+  if(!st.err&&Blobs.missing()>0&&App.db){try{if(await Blobs.hydrate(App.db,{fetch:bfetch(m)})===0||true)App.render()}catch(e){}}
   if(manual&&!st.err)toast('Zsynchronizowano z OneDrive')
  }catch(e){if(e.conflict){try{const rem=await head(fname(m));await mergeFlow(m,rem)}catch(x){st.err=x.message}}else{st.err=e.message||'Błąd synchronizacji';manual&&toast(st.err)}}
  st.busy=false;repaint()}
@@ -5191,6 +5234,7 @@ async function snapshot(label,force){const m=App.mode;if(!App.db||!m||m==='demo'
 App.snapshot=snapshot;
 async function restore(x){await snapshot('Przed przywróceniem',true);let db;
  try{db=App.key?await Crypt.open(App.key,JSON.parse(x.s)):JSON.parse(x.s)}catch(e){toast('Tej wersji nie da się odczytać (np. po zmianie hasła).');return false}
+ try{await Blobs.hydrate(db)}catch(e){}
  App.load(App.mode,db);App.render();toast('Przywrócono wersję z '+new Date(x.t).toLocaleString('pl-PL'));return true}
 /* --- kosz: wykrywamy zniknięte wpisy z identyfikatorem --- */
 let prev=null,prevDb=null;
@@ -5216,6 +5260,7 @@ const dt=t=>new Date(t).toLocaleString('pl-PL',{day:'numeric',month:'short',hour
 const same=(a,b)=>{try{return JSON.stringify(a)===JSON.stringify(b)}catch(e){return false}};
 async function openEntries(x){let sd;
  try{sd=App.key?await Crypt.open(App.key,JSON.parse(x.s)):JSON.parse(x.s)}catch(e){toast('Tej wersji nie da się odczytać (np. po zmianie hasła).');return}
+ try{await Blobs.hydrate(sd)}catch(e){}
  const old=arrays(sd),cur=arrays(App.db),rows=[];
  for(const key in old){const cm=new Map((cur[key]||[]).map(i=>[i&&i.id,i]));for(const it of old[key]){if(!it||typeof it!=='object'||it.id==null)continue;const c=cm.get(it.id);if(!c)rows.push({key,it,kind:'del'});else if(!same(c,it))rows.push({key,it,cur:c,kind:'chg'})}}
  let close;const body=h('div',{class:'col',style:{gap:'8px'}},h('p',{class:'small muted',style:{margin:0}},'Wpisy z migawki z '+dt(x.t)+', które dziś są usunięte lub inne. Przywracasz tylko wybrane – reszta danych zostaje bez zmian.'));
@@ -5445,15 +5490,19 @@ function scan(){const by={};let total=0;
 function usage(){let a=0;try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf('zycie.')===0)a+=(k.length+localStorage.getItem(k).length)*2}}catch(e){}return a}
 App.spaceInfo=()=>{const u=usage(),p=scan(),pct=Math.min(100,Math.round(u/10485760*100));return{used:u,photos:p.total*2,by:p.by,pct}};
 App.spaceCard=function(){
- const i=App.spaceInfo(),names={fashion:'Stylizacje i ubrania',budget:'Paragony i wydatki',health:'Zdrowie',inventory:'Inwentarz',notepad:'Notatnik',travel:'Podróże',home:'Dom',kb:'Baza wiedzy',people:'Ludzie',vault:'Sejf'};
+ const i=App.spaceInfo(),names={fashion:'Stylizacje i ubrania',budget:'Paragony i wydatki',health:'Zdrowie',inventory:'Inwentarz',notepad:'Notatnik',travel:'Podróże',home:'Dom',kb:'Baza wiedzy',people:'Ludzie',vault:'Sejf',hobby:'Hobby'};
  const top=Object.entries(i.by).sort((a,b)=>b[1]-a[1]).slice(0,5);
  const warn=i.pct>=70;
  const bar=h('div',{style:{height:'8px',borderRadius:'99px',background:'var(--line,#ddd)',overflow:'hidden',margin:'8px 0'}},h('div',{style:{width:i.pct+'%',height:'100%',background:warn?'var(--warn,#ff9f0a)':'var(--accent,#0a84ff)'}}));
- return h('div',{class:'card'},h('h3',null,'Miejsce w pamięci'),
-  h('div',{class:'small'},'Zajęte: ',h('b',null,kb(i.used)),' z ok. 10 MB limitu przeglądarki (',i.pct+'%)'),bar,
+ const ext=App.key&&Blobs.on();const st=h('div',{class:'small muted',id:'blst'},ext?'Zdjęcia są trzymane w osobnej, większej pamięci (zaszyfrowane) – nie zapełniają głównej bazy.':'');
+ const card=h('div',{class:'card'},h('h3',null,'Miejsce w pamięci'),
+  h('div',{class:'small'},'Główna baza: ',h('b',null,kb(i.used)),' z ok. 10 MB limitu przeglądarki (',i.pct+'%)'),bar,
   warn?h('div',{class:'small warn',style:{marginBottom:'8px'}},'Pamięć kończy się. Usuń stare zdjęcia (paragony, stylizacje) lub zrób kopię i wyczyść to, czego nie potrzebujesz.'):null,
-  h('div',{class:'small muted'},'Zdjęcia i pliki: ',h('b',null,kb(i.photos))),
-  top.length?h('div',{style:{marginTop:'6px'}},top.map(([m,n])=>h('div',{class:'small row',style:{justifyContent:'space-between'}},h('span',null,names[m]||m),h('span',{class:'muted'},kb(n*2))))):null)};
+  h('div',{class:'small muted'},'Zdjęcia i pliki razem: ',h('b',null,kb(i.photos))),st,
+  top.length?h('div',{style:{marginTop:'6px'}},top.map(([m,n])=>h('div',{class:'small row',style:{justifyContent:'space-between'}},h('span',null,names[m]||m),h('span',{class:'muted'},kb(n*2))))):null,
+  ext?h('div',{style:{marginTop:'8px'}},btn('Wyczyść nieużywane zdjęcia',async()=>{const n=await Blobs.gc(App.mode,App.key);toast(n<0?'Nie udało się sprawdzić historii – spróbuj później':n?'Usunięto '+n+' nieużywanych plików':'Nie ma nic do wyczyszczenia')},'sm')):null);
+ if(ext)Blobs.stats(App.mode).then(async s=>{let t='Osobna pamięć zdjęć: '+s.n+' plików, '+kb(s.bytes);try{const q=await navigator.storage.estimate();if(q.quota)t+=' · łącznie w przeglądarce '+kb(q.usage)+' z '+kb(q.quota)}catch(x){}const el=card.querySelector('#blst');if(el)el.textContent=t});
+ return card};
 /* ostrzeżenie raz na sesję po zalogowaniu, gdy >80% */
 let warned=false;const r1=App.render;
 App.render=function(){const r=r1.apply(this,arguments);if(this.db&&!warned){warned=true;setTimeout(()=>{try{const i=App.spaceInfo();if(i.pct>=80)toast('Pamięć prawie pełna ('+i.pct+'%) – zobacz Ustawienia → Miejsce')}catch(e){}},2500)}return r};
@@ -5464,7 +5513,7 @@ App.render=function(){const r=r1.apply(this,arguments);if(this.db&&!warned){warn
 const IDB=()=>new Promise((ok,no)=>{const r=indexedDB.open('mylife-bk',1);r.onupgradeneeded=()=>r.result.createObjectStore('k');r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
 const idbGet=async k=>{try{const d=await IDB();return await new Promise(ok=>{const q=d.transaction('k').objectStore('k').get(k);q.onsuccess=()=>ok(q.result);q.onerror=()=>ok(null)})}catch(e){return null}};
 const idbSet=async(k,v)=>{try{const d=await IDB();await new Promise(ok=>{const t=d.transaction('k','readwrite');t.objectStore('k').put(v,k);t.oncomplete=ok;t.onerror=ok})}catch(e){}};
-async function content(){const a=App;a.db.settings.lastBackup=new Date().toISOString();a.save(true);if(a.key){await a._p;return{name:`zycie-kopia-zaszyfrowana-${todayStr()}.json`,text:localStorage.getItem('zycie.v1.'+a.mode)}}return{name:`zycie-kopia-${todayStr()}.json`,text:JSON.stringify(a.db,null,1)}}
+async function content(){const a=App;a.db.settings.lastBackup=new Date().toISOString();a.save(true);if(a.key){await a._p;return{name:`zycie-kopia-zaszyfrowana-${todayStr()}.json`,text:await a.fullEnv()}}return{name:`zycie-kopia-${todayStr()}.json`,text:JSON.stringify(a.db,null,1)}}
 async function perm(dir,ask){try{const o={mode:'readwrite'};if(await dir.queryPermission(o)==='granted')return true;if(ask&&await dir.requestPermission(o)==='granted')return true}catch(e){}return false}
 async function toFolder(ask){const dir=await idbGet('dir');if(!dir||!(await perm(dir,ask)))return false;
  try{const c=await content(),f=await dir.getFileHandle(c.name,{create:true}),w=await f.createWritable();await w.write(c.text);await w.close();

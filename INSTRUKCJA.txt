@@ -176,3 +176,10 @@ CZĘŚĆ 26 (wersja 6.1)
 - Kopia do pliku co tydzień: gdy ostatnia kopia ma > 7 dni, aplikacja zapyta (raz dziennie) i pobierze plik. Na komputerze (Chrome/Edge) w Ustawieniach → „Kopia zapasowa do pliku" → „Wybierz folder": kopie zapisują się same, zostaje 8 ostatnich. Można wyłączyć.
 - Cofnij: po usunięciu wpisu pojawia się komunikat z przyciskiem „Cofnij"; Ctrl+Z cofa ostatnią zmianę (do 12 ostatnich w tej sesji).
 - Naprawiono: przyciski w komunikatach były nieklikalne.
+
+CZĘŚĆ 27 (wersja 6.2)
+- Zdjęcia i pliki (paragony, stylizacje, dokumenty) nie siedzą już w głównej bazie, tylko w osobnej, większej pamięci przeglądarki (IndexedDB), zaszyfrowane kluczem konta. Limit ~10 MB dotyczy teraz tylko tekstów, więc zdjęć można mieć wielokrotnie więcej.
+- OneDrive: zdjęcia lecą jako osobne zaszyfrowane pliki (mylife-blob-…). Główny plik synchronizacji jest przez to mały i szybki. Drugie urządzenie dociąga brakujące zdjęcia samo.
+- Kopia do pliku zawiera zdjęcia w całości. Zmiana hasła i odzyskiwanie kodem zachowują zdjęcia.
+- Ustawienia → Miejsce w pamięci: ile zajmują zdjęcia + przycisk „Wyczyść nieużywane zdjęcia".
+- Konta bez hasła (demo) działają jak dotąd – zdjęcia w bazie.
