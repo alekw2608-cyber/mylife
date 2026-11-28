@@ -4182,7 +4182,7 @@ if(web){try{const l=document.createElement('link');l.rel='manifest';l.href='mani
  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 
 /* --- status połączenia + aktualizacje --- */
-const VER='5.7';App.ver=VER;let reg=null,upd=false;
+const VER='5.8';App.ver=VER;let reg=null,upd=false;
 const chip=document.createElement('button');chip.type='button';chip.id='net-chip';chip.className='btn ghost netchip';
 const paint=()=>{const on=navigator.onLine;chip.className='btn ghost netchip '+(on?'on':'off');chip.innerHTML='<span class="dot" style="background:'+(on?'var(--good,#30d158)':'var(--warn,#ff9f0a)')+'"></span><span class="nt">'+(on?'Online':'Offline')+'</span>';chip.title=on?'Połączono z internetem. Dane zapisują się na urządzeniu.':'Brak internetu. Aplikacja działa dalej, a dane zapisują się na urządzeniu.'};
 chip.onclick=()=>toast(navigator.onLine?'Online – dane i tak zawsze zapisują się na tym urządzeniu.':'Offline – możesz normalnie pracować, wszystko zapisuje się na urządzeniu.');
@@ -4253,7 +4253,7 @@ return{}})();
 /* ============ SAMOUCZEK: przy nowym koncie, do pominięcia, zawsze dostępny ============ */
 const Tour=(()=>{
 ICONS.help='<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/>';
-const S=[
+const FULL=[
  ['👋','Witaj w MyLife App','Jedno miejsce na finanse, kalendarz, zadania, zdrowie, dom, relacje i hobby. Wszystko działa bez internetu, a Twoje dane zostają w tej przeglądarce. Samouczek zajmie minutę i możesz go pominąć.',null],
  ['☀️','Ekran „Dziś”','Po wejściu zobaczysz plan dnia, zadania, nawyki, wodę, trening i posiłki w jednym miejscu. Na górze ustawiasz „Cel dnia”, czyli jedną najważniejszą rzecz.','today'],
  ['＋','Szybkie dodawanie','Przycisk „＋” w rogu (albo klawisz N) dodaje zadanie, wydatek, wydarzenie, wodę, nastrój, notatkę, zakupy lub miejsce na mapie z każdego ekranu.',null],
@@ -4264,22 +4264,29 @@ const S=[
  ['🤝','Relacje, mapa i wiedza','Osoby z datami i prezentami oraz sieć znajomości, mapa miejsc (znajomi, restauracje), baza wiedzy w kafelkach i szybki notatnik.','people'],
  ['🔒','Bezpieczeństwo','Każde konto ma hasło, a dane są szyfrowane. Zapisz kod odzyskiwania w bezpiecznym miejscu i rób kopie zapasowe w Ustawieniach. Konto możesz też instalować na telefonie.','settings'],
  ['✅','Gotowe','Samouczek znajdziesz zawsze pod przyciskiem „?” u góry oraz w Ustawieniach. Zaczynamy od ekranu „Dziś”.','today']];
-function start(i0){let i=i0||0,close=null;const body=h('div');
+const modeBtn=(v,t,d)=>h('button',{type:'button',class:'btn',style:{display:'block',width:'100%',textAlign:'left',padding:'10px 14px',margin:'6px 0',height:'auto'},onclick:e=>{const s=App.db.settings;if(v==='custom'&&!s.mods)s.mods=(App.mods||[]).map(m=>m.id);s.mode=v;App.commit();if(v==='custom'){toast('Moduły wybierzesz w Ustawieniach → Tryb aplikacji')}}},h('b',null,t),h('div',{class:'small muted'},d));
+let SHORT=[
+ ['plus','Szybkie dodawanie','Przycisk „+” w rogu (na komputerze klawisz N) dodaje zadanie, wydatek, wydarzenie, notatkę i wiele innych rzeczy z każdego ekranu. Na ekranie „Dziś” widzisz cały dzień w jednym miejscu.',null,null],
+ ['repeat','Synchronizacja między urządzeniami','Dane są u Ciebie na urządzeniu i działają bez internetu. Gdy chcesz mieć je na telefonie i komputerze, połącz konto z OneDrive w Ustawieniach. Zmiany z obu urządzeń łączą się same, wpis po wpisie.','settings',null],
+ ['bell','Powiadomienia','Poranne podsumowanie (zadania, płatności, wydarzenia) i przypomnienie przed wydarzeniem. Możesz je włączyć teraz albo później w Ustawieniach.',null,()=>{const st=h('div',{class:'small muted',style:{marginTop:'6px'}});return h('div',{style:{textAlign:'center',marginBottom:'12px'}},btn('Włącz powiadomienia',async()=>{if(window.Notify&&await Notify.enable())st.textContent='Włączone.'},'primary'),st)}],
+ ['layers','Ile modułów chcesz widzieć?','Aplikacja ma dużo modułów, ale nie musisz używać wszystkich. Wybór możesz zmienić w Ustawieniach → Tryb aplikacji, a ukryte moduły zachowują dane.',null,()=>h('div',{style:{maxWidth:'420px',margin:'0 auto 12px'}},modeBtn('simple','Prosty','Dziś, Mój dzień, Kalendarz, Zadania, Budżet, Notatnik, Nawyki.'),modeBtn('full','Pełny','Wszystkie moduły.'),modeBtn('custom','Własny','Sam wybierzesz, które moduły pokazać.'))]];
+let S=SHORT;
+function start(i0,set){S=set==='full'?FULL:SHORT;let i=i0||0,close=null;const body=h('div');
  const draw=()=>{body.innerHTML='';const [ic,t,tx,go]=S[i];
-  body.append(h('div',{style:{textAlign:'center',fontSize:'48px',margin:'4px 0 8px'}},ic),h('h2',{style:{textAlign:'center',margin:'0 0 8px'}},t),h('p',{style:{textAlign:'center',margin:'0 auto 14px',maxWidth:'460px'}},tx),
-   go?h('div',{style:{textAlign:'center',marginBottom:'12px'}},btn('Pokaż to miejsce',()=>{close();App.go(go)},'sm')):null,
+  body.append(S===SHORT?h('div',{style:{width:'72px',height:'72px',borderRadius:'22px',background:'var(--accent-soft)',color:'var(--accent)',display:'grid',placeItems:'center',margin:'4px auto 12px'},html:ico(ic).replace('<svg','<svg width="34" height="34"')}):h('div',{style:{textAlign:'center',fontSize:'48px',margin:'4px 0 8px'}},ic),h('h2',{style:{textAlign:'center',margin:'0 0 8px'}},t),h('p',{style:{textAlign:'center',margin:'0 auto 14px',maxWidth:'460px'}},tx),
+   S[i][4]?S[i][4]():null,go?h('div',{style:{textAlign:'center',marginBottom:'12px'}},btn('Pokaż to miejsce',()=>{close();App.go(go)},'sm')):null,
    h('div',{class:'row',style:{justifyContent:'center',gap:'6px',marginBottom:'6px'}},S.map((_,k)=>h('span',{style:{width:k===i?'20px':'8px',height:'8px',borderRadius:'4px',background:k===i?'var(--accent)':'var(--line)',transition:'width .2s'}}))),
    h('div',{class:'tiny muted',style:{textAlign:'center'}},'Krok '+(i+1)+' z '+S.length))};
  const prev=btn('Wstecz',()=>{if(i>0){i--;draw();foot()}},'ghost'),next=btn('',()=>{if(i<S.length-1){i++;draw();foot()}else close()},'primary'),skip=btn('Pomiń samouczek',()=>close(),'ghost');
  const foot=()=>{prev.style.visibility=i?'visible':'hidden';next.textContent=i===S.length-1?'Zaczynamy':'Dalej';skip.style.visibility=i===S.length-1?'hidden':'visible'};
  draw();close=modal({title:'Samouczek',body,actions:[skip,prev,next]});foot()}
 function startWhenFree(){let n=0;const iv=setInterval(()=>{n++;if(!App.db||n>120){clearInterval(iv);return}if(!document.querySelector('.modal')){clearInterval(iv);start()}},500)}
-App.tourCard=()=>h('div',{class:'card',style:{marginTop:'14px'}},h('h3',null,'Samouczek i podpowiedzi'),h('p',{class:'small muted',style:{marginTop:0}},'Krótki przewodnik po aplikacji. Możesz go pominąć i wrócić do niego w dowolnym momencie.'),h('div',{class:'row wrap'},btn('Pokaż samouczek',()=>start(),'primary','help')),
+App.tourCard=()=>h('div',{class:'card',style:{marginTop:'14px'}},h('h3',null,'Samouczek i podpowiedzi'),h('p',{class:'small muted',style:{marginTop:0}},'Krótki przewodnik po aplikacji. Możesz go pominąć i wrócić do niego w dowolnym momencie.'),h('div',{class:'row wrap'},btn('Pokaż samouczek',()=>start(),'primary','help'),btn('Pełny przewodnik po modułach',()=>start(0,'full'),'','book')),
  h('label',{class:'chk li small',style:{marginTop:'10px'}},h('input',{type:'checkbox',checked:!App.db.settings.noSug,onchange:e=>{App.db.settings.noSug=!e.target.checked;App.save()}}),h('span',{class:'sp'},'Podpowiadaj wcześniej wpisane wartości w formularzach')),
  btn('Wyczyść zapamiętane podpowiedzi',()=>confirmBox('Usunąć wszystkie zapamiętane podpowiedzi z formularzy?',()=>{App.db.settings.sug={};App.save();toast('Wyczyszczono podpowiedzi')},{yes:'Wyczyść'}),'sm ghost'));
 const hb=h('button',{class:'btn icon ghost',id:'help-btn','aria-label':'Samouczek',title:'Samouczek',type:'button',onclick:()=>start(),html:ico('help')});
 const sb=document.querySelector('#search-btn');sb&&sb.before(hb);
-return{start,startWhenFree}})();
+return{start,startWhenFree,full:()=>start(0,'full')}})();
 /* ===== Import / eksport: wyciąg bankowy CSV, kalendarz ICS ===== */
 (()=>{
 App.defaults.io=()=>({rules:[]});
@@ -5306,7 +5313,7 @@ App.notifCard=()=>{if(App.mode==='demo')return null;const c=cfg(),perm=supported
  return h('div',{class:'card',style:{marginTop:'14px'}},...rows)};
 setInterval(()=>{check(false)},60000);setTimeout(()=>check(false),4000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')check(false)});
-return{check,gather,cfg,show}})();
+return{check,gather,cfg,show,enable}})();
 /* 4.6: ikony liniowe zamiast emoji w interfejsie + ilustracje pustych paneli (styl Apple) */
 Object.assign(ICONS,{
 pause:'<path d="M8 5v14M16 5v14"/>',

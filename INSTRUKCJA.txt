@@ -158,3 +158,7 @@ CZĘŚĆ 22 – WYGLĄD I DOSTĘPNOŚĆ (wersja 5.7)
 Ustawienia → Wygląd: motyw „Wg pory dnia” (ciemny od 20:00 do 7:00), rozmiar tekstu (mały, normalny, duży,
 największy), wysoki kontrast oraz tryb jednej ręki (większe przyciski, przycisk „+” po lewej lub prawej).
 Kolor akcentu (7 kolorów) był już wcześniej. Ustawienia synchronizują się między urządzeniami.
+
+CZĘŚĆ 23 (wersja 5.8)
+- Krótki samouczek przy pierwszym uruchomieniu (4 ekrany): szybkie dodawanie, synchronizacja, powiadomienia, wybór modułów (Prosty / Pełny / Własny).
+- Pełny przewodnik po modułach: Ustawienia → Samouczek → „Pełny przewodnik po modułach".
